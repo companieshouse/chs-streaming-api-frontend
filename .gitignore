@@ -1,15 +1,17 @@
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+# Build artifacts
+chs-streaming-api-frontend
+chs-streaming-api-frontend*.zip
+build.log
 
-# Test binary, built with `go test -c`
-*.test
+# Test output
+test.xml
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
+# Lint output
+lint.txt
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Mac files
+.DS_Store
+._*
+
+#IDE generated files
+.idea/
