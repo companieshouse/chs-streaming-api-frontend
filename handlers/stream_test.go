@@ -79,7 +79,7 @@ var StreamProcessHTTPTests = unittesting.Tests{List: unittesting.TestsList{
 		Given: "we receive an offset from the user that we can not parse",
 		Then:  "client receives a HTTP 400 error code",
 		Vars:  unittesting.GenericMap{},
-	},},
+	}},
 }
 
 func initStreamProcessHTTPTest(t *testing.T) *unittesting.UnitTest {
