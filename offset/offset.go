@@ -50,7 +50,7 @@ func (of *Offset) Parse(offset string) (int64, error) {
 	return int64(o), nil
 }
 
-// IsValid validates that an offset is within a valid range for the provided topic.
+// IsValid validates that an offset is within a valid range for the provided topic and returns nil if a valid offset is passed.
 func (of *Offset) IsValid(brokerAddr []string, topic string, offset int64) error {
 
 	oldestOffset, err := OldestTopicOffset(brokerAddr, topic)
@@ -74,7 +74,7 @@ func (of *Offset) IsValid(brokerAddr []string, topic string, offset int64) error
 	return nil
 }
 
-// OldestTopicOffset Returns oldest offset (needs to be moved to chs.go client.go)
+// OldestTopicOffset Returns oldest offset
 func OldestTopicOffset(brokerAddr []string, topic string) (int64, error) {
 	client, err := sarama.NewClient(brokerAddr, sarama.NewConfig())
 	if err != nil {

@@ -29,8 +29,8 @@ type Streaming struct {
 	RequestTimeout    time.Duration
 	HeartbeatInterval time.Duration
 	//CacheBroker:       s,
-	ConsumerFactory   consumer.FactoryInterface
-	Offset            offset.Interface
+	ConsumerFactory consumer.FactoryInterface
+	Offset          offset.Interface
 }
 
 // AddStream sets up the routing for the particular stream type
@@ -157,7 +157,7 @@ func responseWriterWrite(w http.ResponseWriter, b []byte) (int, error) {
 	return w.Write(b)
 }
 
-// ProcessMessage - This method is processingvalidating the message and writing the message back to response writer
+// ProcessMessage - This method is processing, validating the message and writing the message back to response writer
 func ProcessMessage(contextID string, m *sarama.ConsumerMessage, w http.ResponseWriter, stream Stream) error {
 
 	var err error
@@ -170,8 +170,7 @@ func ProcessMessage(contextID string, m *sarama.ConsumerMessage, w http.Response
 
 	log.TraceC(contextID, resourceChangedData.ResourceID)
 
-
-	if _, err = callResponseWriterWrite(w, []byte(fmt.Sprintf("%s\n"))); err != nil {
+	if _, err = callResponseWriterWrite(w, []byte(fmt.Sprintf("%s\n", err))); err != nil {
 		log.ErrorC(contextID, fmt.Errorf("fail to write header: '%s'", err))
 		return err
 	}

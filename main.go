@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/companieshouse/chs-streaming-api-frontend/config"
-	"github.com/companieshouse/chs-streaming-api-frontend/handlers"
 	"github.com/companieshouse/chs-streaming-api-frontend/consumer"
+	"github.com/companieshouse/chs-streaming-api-frontend/handlers"
 	"github.com/companieshouse/chs-streaming-api-frontend/handlers/filing"
 
 	"github.com/companieshouse/chs.go/log"
@@ -18,7 +18,6 @@ import (
 
 	"github.com/justinas/alice"
 )
-
 
 const (
 	cacheBroker             = "cache-broker"
@@ -53,7 +52,6 @@ func main() {
 	//service healthcheck
 	svc.Router().Path("/healthcheck").Methods("GET").HandlerFunc(handlers.HealthCheck)
 
-
 	//TODO : Call to cache broker
 	log.Info("Getting cache-broker", log.Data{"cache-broker": cacheBroker})
 	//s, err := cacheBroker.Get(cfg.CacheBrokerURL, cacheBroker)
@@ -62,15 +60,14 @@ func main() {
 		os.Exit(1)
 	}
 
-
 	//Streaming Request
 	streamHandler := handlers.Streaming{
 		BrokerAddr:        cfg.StreamingBrokerAddr,
 		RequestTimeout:    time.Duration(cfg.RequestTimeout),
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
 		//CacheBroker:       s,
-		ConsumerFactory:   consumer.NewConsumerFactory(),
-		Offset:            offset.NewOffset(),
+		ConsumerFactory: consumer.NewConsumerFactory(),
+		Offset:          offset.NewOffset(),
 	}
 
 	filingStream := &filing.Streaming{}
@@ -80,8 +77,6 @@ func main() {
 	officersStream := &filing.Streaming{}
 	pscStream := &filing.Streaming{}
 
-
-
 	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream, filingStream)
 	streamHandler.AddStream(svc.Router(), "/companies", companyProfileStream, companyStream)
 	streamHandler.AddStream(svc.Router(), "/insolvency-cases", companyInsolvencyStream, insolvencyStream)
@@ -89,7 +84,5 @@ func main() {
 	streamHandler.AddStream(svc.Router(), "/officers", companyOfficersStream, officersStream)
 	streamHandler.AddStream(svc.Router(), "/persons-with-significant-control", companyPSCStream, pscStream)
 
-
 	svc.Start()
 }
-

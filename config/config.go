@@ -15,7 +15,7 @@ type Config struct {
 	KeyFile             string      `env:"KEY_FILE"                     flag:"key-file"               flagDesc:"Key file"`
 	LogTopic            string      `env:"LOG_TOPIC"                    flag:"kafka-log-topic"        flagDesc:"Log topic"`
 	RequestTimeout      int         `env:"REQUEST_TIMEOUT"              flag:"request-timeout"        flagDesc:"Request timeout in seconds"`
-	CacheBrokerURL   string      	`env:"CACHE_BROKER_URL"          	flag:"cache-broker-url"    	  flagDesc:"Cache broker url"`
+	CacheBrokerURL      string      `env:"CACHE_BROKER_URL"          	flag:"cache-broker-url"    	  flagDesc:"Cache broker url"`
 	StreamingBrokerAddr []string    `env:"KAFKA_STREAMING_BROKER_ADDR"  flag:"streaming-broker-addr"  flagDesc:"Streaming CH Kafka broker cluster address"`
 }
 
@@ -79,5 +79,3 @@ func Get() (*Config, error) {
 
 	return cfg, nil
 }
-
-
