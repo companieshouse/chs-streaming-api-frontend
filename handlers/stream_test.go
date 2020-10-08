@@ -1,41 +1,34 @@
 package handlers
 
 import (
-	"errors"
-	"github.com/companieshouse/chs-streaming-api-frontend/offset"
-	"github.com/companieshouse/chs-streaming-api-frontend/unittesting"
-	. "github.com/smartystreets/goconvey/convey"
-	"net/http/httptest"
-	"testing"
-
-	"github.com/Shopify/sarama"
 	"github.com/companieshouse/chs-go-avro-schemas/data"
+	"github.com/companieshouse/chs-streaming-api-frontend/unittesting"
+	"net/http/httptest"
 
-	"github.com/companieshouse/chs-streaming-api-frontend/mocks/consumer"
-	"github.com/companieshouse/chs-streaming-api-frontend/mocks/offset"
-
+	"errors"
 	"github.com/golang/mock/gomock"
 	"net/http"
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 var testFilingStream Stream
 
-const dummyTopic = "test-topic"
-
-var dummyBroker = []string{"testBroker1"}
-
 var (
-	ChMessages = make(chan *sarama.ConsumerMessage, 3)
-
-	mockCtlr            *gomock.Controller
-	mockOffset          *mock_offset.MockInterface
-	mockConsumerFactory *mock_consumer.MockFactoryInterface
-	mockConsumer        *mock_consumer.MockInterface
-
+	mockCtlr   *gomock.Controller
 	req        *http.Request
-	testOffset int64
 	testStream Streaming
 )
+
+var StreamProcessHTTPTests = unittesting.Tests{List: unittesting.TestsList{
+	"TestHeartbeatTimeoutAndRequestTimeoutHandledOK": unittesting.UnitTest{
+		Title: "Trap Heartbeat timeout",
+		Given: "Heartbeat timeout sent",
+		Then:  "the heartbeat timeout is called",
+		Vars:  unittesting.GenericMap{},
+	}},
+}
 
 type closeNotifyingRecorder struct {
 	*httptest.ResponseRecorder
@@ -55,84 +48,33 @@ func newCloseNotifyingRecorder() *closeNotifyingRecorder {
 	return &closeNotifyingRecorder{httptest.NewRecorder(), make(chan bool, 1)}
 }
 
-var StreamProcessHTTPTests = unittesting.Tests{List: unittesting.TestsList{
-	"TestTimeOutHandledOK": unittesting.UnitTest{
-		Title: "TimeOut Handled OK",
-		Given: "when a timeout is handled the main loop is exited",
-		Then:  "the timeout function is called",
-		Vars:  unittesting.GenericMap{},
-	},
-	"TestHeartbeatHandledOK": unittesting.UnitTest{
-		Title: "Trap Heartbeat timeout",
-		Given: "Heartbeat timeout sent",
-		Then:  "the heartbeat timeout is called",
-		Vars:  unittesting.GenericMap{},
-	},
-	"TestFailWithInvalidOffset": unittesting.UnitTest{
-		Title: "Test user supplied invalid offset",
-		Given: "we receive an invalid offset from the user",
-		Then:  "client receives a HTTP 416 error code",
-		Vars:  unittesting.GenericMap{},
-	},
-	"TestFailToParseOffset": unittesting.UnitTest{
-		Title: "Test fail to parse user supplied offset",
-		Given: "we receive an offset from the user that we can not parse",
-		Then:  "client receives a HTTP 400 error code",
-		Vars:  unittesting.GenericMap{},
-	}},
-}
-
-func initStreamProcessHTTPTest(t *testing.T) *unittesting.UnitTest {
-	testID := unittesting.GetCallerName()
-	unittesting.ResetInternalStatus()
-	unitTest := StreamProcessHTTPTests.InitRunningTest(testID)
-
-	// Initialise
-	callCheckIfDataNotPresent = stubCheckIfDataNotPresentReturnError
-	callLogHandleTimeOut = stubLogHandleTimeOut
-	callProcessMessage = stubProcessMessage
-	callProcessMessageFailed = stubProcessMessageFailed
-	callLogHandleClientDisconnect = stubLogHandleClientDisconnect
-	callLogHeartbeatTimeout = stubLogHeartbeatTimeout
-
-	mockCtlr = gomock.NewController(t)
-	mockOffset = mock_offset.NewMockInterface(mockCtlr)
-	mockConsumerFactory = mock_consumer.NewMockFactoryInterface(mockCtlr)
-	mockConsumer = mock_consumer.NewMockInterface(mockCtlr)
-
-	var reqerr error
-	req, reqerr = http.NewRequest("GET", "/filings", nil)
-	if reqerr != nil {
-		t.Errorf("Fail to create http request : %s", reqerr.Error())
-	}
-
-	testOffset = int64(1)
-	timeoutCalled = false
-	processMessageCalled = false
-	processMessageFailedCalled = false
-	clientDisconnectCalled = false
-	heartbeatTimeoutCalled = false
-
-	testStream = Streaming{BrokerAddr: dummyBroker, ConsumerFactory: mockConsumerFactory, Offset: mockOffset}
-
-	return &unitTest
-}
-
+// Test Stubs
 func stubCheckIfDataNotPresentReturnError(sch data.ResourceChangedData) error {
 	return errors.New("no data is available for the stream")
 }
 
-var timeoutCalled bool
+var requestTimeoutCalled bool
 
-func stubLogHandleTimeOut(contextID string) {
-	timeoutCalled = true
+func stubHandleRequestTimeOut(contextID string) {
+	requestTimeoutCalled = true
 }
 
 var processMessageCalled bool
 
-func stubProcessMessage(contextID string, m *sarama.ConsumerMessage, w http.ResponseWriter, stream Stream) (err error) {
+func stubProcessMessage(contextID string, w http.ResponseWriter, stream Stream) (err error) {
 	processMessageCalled = true
 	return nil
+}
+
+func stubProcessMessageReturnError(contextID string, w http.ResponseWriter, stream Stream) (err error) {
+	processMessageCalled = true
+	return errors.New("error consuming message")
+}
+
+var heartbeatTimeoutCalled bool
+
+func stubHandleHeartbeatTimeout(contextID string) {
+	heartbeatTimeoutCalled = true
 }
 
 var processMessageFailedCalled bool
@@ -143,50 +85,45 @@ func stubProcessMessageFailed(contextID string, err error) {
 
 var clientDisconnectCalled bool
 
-func stubLogHandleClientDisconnect(contextID string) {
+func stubHandleClientDisconnect(contextID string) {
 	clientDisconnectCalled = true
 }
 
-var heartbeatTimeoutCalled bool
+func initStreamProcessHTTPTest(t *testing.T) *unittesting.UnitTest {
+	testID := unittesting.GetCallerName()
+	unittesting.ResetInternalStatus()
+	unitTest := StreamProcessHTTPTests.InitRunningTest(testID)
 
-func stubLogHeartbeatTimeout(contextID string) {
-	heartbeatTimeoutCalled = true
-}
+	// Initialise
+	callCheckIfDataNotPresent = stubCheckIfDataNotPresentReturnError
+	callRequestTimeOut = stubHandleRequestTimeOut
+	callHeartbeatTimeout = stubHandleHeartbeatTimeout
 
-// Request Timeout
-func TestTimeOutHandledOK(t *testing.T) {
+	mockCtlr = gomock.NewController(t)
 
-	unitTest := initStreamProcessHTTPTest(t)
-	Convey(unitTest.GetGiven(), t, func() {
-		Convey(unitTest.GetWhen(), func() {
-			Convey(unitTest.GetThen(), func() {
+	callProcessMessageFailed = stubProcessMessageFailed
+	callHandleClientDisconnect = stubHandleClientDisconnect
 
-				w := newCloseNotifyingRecorder()
-				defer mockCtlr.Finish()
+	var reqerr error
+	req, reqerr = http.NewRequest("GET", "/filings", nil)
+	if reqerr != nil {
+		t.Errorf("Fail to create http request : %s", reqerr.Error())
+	}
 
-				testStream.RequestTimeout = 1 // seconds
-				testStream.HeartbeatInterval = 5000
+	requestTimeoutCalled = false
+	processMessageCalled = false
+	processMessageFailedCalled = false
+	clientDisconnectCalled = false
+	heartbeatTimeoutCalled = false
 
-				mockOffset.EXPECT().Parse("").Return(testOffset, nil)
-				mockOffset.EXPECT().IsValid(dummyBroker, dummyTopic, testOffset).Return(nil)
-				mockConsumerFactory.EXPECT().Initialise(dummyTopic, dummyBroker).Return(mockConsumer)
-				mockConsumer.EXPECT().ConsumePartition(int32(0), testOffset).Return(nil)
-				mockConsumer.EXPECT().Messages().Return(ChMessages)
+	//time in seconds
+	testStream = Streaming{RequestTimeout: 100, HeartbeatInterval: 10}
 
-				testStream.ProcessHTTP(dummyTopic, w, req, testFilingStream)
-
-				So(w.Code, ShouldEqual, 200)
-				So(timeoutCalled, ShouldEqual, true)
-				So(processMessageCalled, ShouldEqual, false)
-				So(clientDisconnectCalled, ShouldEqual, false)
-				So(heartbeatTimeoutCalled, ShouldEqual, false)
-			})
-		})
-	})
+	return &unitTest
 }
 
 //Test for Heart beat
-func TestHeartbeatHandledOK(t *testing.T) {
+func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 
 	unitTest := initStreamProcessHTTPTest(t)
 	Convey(unitTest.GetGiven(), t, func() {
@@ -196,66 +133,17 @@ func TestHeartbeatHandledOK(t *testing.T) {
 				w := newCloseNotifyingRecorder()
 				defer mockCtlr.Finish()
 
-				testStream.RequestTimeout = 3 // seconds
-				testStream.HeartbeatInterval = 1
+				//For test reset streaming request timeout and heartbeatInterval
+				testStream.RequestTimeout = 3    //in seconds
+				testStream.HeartbeatInterval = 1 //in seconds
 
-				mockOffset.EXPECT().Parse("").Return(testOffset, nil)
-				mockOffset.EXPECT().IsValid(dummyBroker, dummyTopic, testOffset).Return(nil)
-				mockConsumerFactory.EXPECT().Initialise(dummyTopic, dummyBroker).Return(mockConsumer)
-				mockConsumer.EXPECT().ConsumePartition(int32(0), testOffset).Return(nil)
-				mockConsumer.EXPECT().Messages().Return(ChMessages)
+				testStream.ProcessHTTP(w, req, testFilingStream)
 
-				testStream.ProcessHTTP(dummyTopic, w, req, testFilingStream)
 				So(w.Code, ShouldEqual, 200)
-				So(timeoutCalled, ShouldEqual, true)
+				So(requestTimeoutCalled, ShouldEqual, true)
 				So(processMessageCalled, ShouldEqual, false)
 				So(clientDisconnectCalled, ShouldEqual, false)
 				So(heartbeatTimeoutCalled, ShouldEqual, true)
-			})
-		})
-	})
-}
-
-// Invalid Offset - Out of range
-func TestFailWithInvalidOffset(t *testing.T) {
-
-	unitTest := initStreamProcessHTTPTest(t)
-	Convey(unitTest.GetGiven(), t, func() {
-		Convey(unitTest.GetWhen(), func() {
-			Convey(unitTest.GetThen(), func() {
-
-				w := newCloseNotifyingRecorder()
-				defer mockCtlr.Finish()
-
-				mockOffset.EXPECT().Parse("").Return(testOffset, nil)
-				mockOffset.EXPECT().IsValid(dummyBroker, dummyTopic, testOffset).Return(offset.ErrOutOfRange)
-
-				testStream.ProcessHTTP(dummyTopic, w, req, testFilingStream)
-
-				So(w.Code, ShouldEqual, 416) //returns Request out of range
-				So(w.ResponseRecorder.Body.String(), ShouldNotEqual, nil)
-			})
-		})
-	})
-}
-
-// Invalid Offset - Bad request
-func TestFailToParseOffset(t *testing.T) {
-
-	unitTest := initStreamProcessHTTPTest(t)
-	Convey(unitTest.GetGiven(), t, func() {
-		Convey(unitTest.GetWhen(), func() {
-			Convey(unitTest.GetThen(), func() {
-
-				w := newCloseNotifyingRecorder()
-				defer mockCtlr.Finish()
-
-				mockOffset.EXPECT().Parse("").Return(testOffset, errors.New("fail to parse offset"))
-
-				testStream.ProcessHTTP(dummyTopic, w, req, testFilingStream)
-
-				So(w.Code, ShouldEqual, 400) //Bad Request
-				So(w.ResponseRecorder.Body.String(), ShouldNotEqual, nil)
 			})
 		})
 	})

@@ -2,13 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/companieshouse/chs-streaming-api-frontend/offset"
+	"github.com/companieshouse/chs-streaming-api-frontend/handlers/filing"
 	"time"
 
 	"github.com/companieshouse/chs-streaming-api-frontend/config"
-	"github.com/companieshouse/chs-streaming-api-frontend/consumer"
 	"github.com/companieshouse/chs-streaming-api-frontend/handlers"
-	"github.com/companieshouse/chs-streaming-api-frontend/handlers/filing"
 
 	"github.com/companieshouse/chs.go/log"
 	"github.com/companieshouse/chs.go/service"
@@ -62,12 +60,9 @@ func main() {
 
 	//Streaming Request
 	streamHandler := handlers.Streaming{
-		BrokerAddr:        cfg.StreamingBrokerAddr,
 		RequestTimeout:    time.Duration(cfg.RequestTimeout),
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
 		//CacheBroker:       s,
-		ConsumerFactory: consumer.NewConsumerFactory(),
-		Offset:          offset.NewOffset(),
 	}
 
 	filingStream := &filing.Streaming{}

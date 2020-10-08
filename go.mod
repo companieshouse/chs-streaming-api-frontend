@@ -5,7 +5,6 @@ go 1.12
 require (
 	github.com/Shopify/sarama v1.27.0
 	github.com/companieshouse/chs-go-avro-schemas v0.1.0
-	github.com/companieshouse/chs-streaming-api v2.3.1-rc1+incompatible
 	github.com/companieshouse/chs.go v1.1.10
 	github.com/companieshouse/gofigure v0.1.4
 	github.com/golang/mock v1.4.4

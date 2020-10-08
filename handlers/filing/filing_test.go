@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/companieshouse/chs-streaming-api-frontend/testdata"
+	"github.com/companieshouse/chs-streaming-api-frontend/unittesting/testdata"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

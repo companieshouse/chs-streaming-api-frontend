@@ -6,17 +6,15 @@ import (
 
 // Config represents the frontend application configuration.
 type Config struct {
-	gofigure            interface{} `order:"env,flag"`
-	BindAddr            string      `env:"BIND_ADDR"                    flag:"bind-addr"              flagDesc:"Bind address"`
-	CertFile            string      `env:"CERT_FILE"                    flag:"cert-file"              flagDesc:"Certificate file"`
-	EricURL             string      `env:"ERIC_LOCAL_URL"               flag:"eric-url"               flagDesc:"Eric url"`
-	FilingTopic         string      `env:"FILING_TOPIC"                 flag:"filing-topic"           flagDesc:"Filing stream topic"`
-	HeartbeatInterval   int         `env:"HEARTBEAT_INTERVAL"           flag:"heartbeat-interval"     flagDesc:"Heartbeat interval in seconds"`
-	KeyFile             string      `env:"KEY_FILE"                     flag:"key-file"               flagDesc:"Key file"`
-	LogTopic            string      `env:"LOG_TOPIC"                    flag:"kafka-log-topic"        flagDesc:"Log topic"`
-	RequestTimeout      int         `env:"REQUEST_TIMEOUT"              flag:"request-timeout"        flagDesc:"Request timeout in seconds"`
-	CacheBrokerURL      string      `env:"CACHE_BROKER_URL"          	flag:"cache-broker-url"    	  flagDesc:"Cache broker url"`
-	StreamingBrokerAddr []string    `env:"KAFKA_STREAMING_BROKER_ADDR"  flag:"streaming-broker-addr"  flagDesc:"Streaming CH Kafka broker cluster address"`
+	gofigure          interface{} `order:"env,flag"`
+	BindAddr          string      `env:"BIND_ADDR"                    flag:"bind-addr"              flagDesc:"Bind address"`
+	CertFile          string      `env:"CERT_FILE"                    flag:"cert-file"              flagDesc:"Certificate file"`
+	KeyFile           string      `env:"KEY_FILE"                     flag:"key-file"               flagDesc:"Key file"`
+	EricURL           string      `env:"ERIC_LOCAL_URL"               flag:"eric-url"               flagDesc:"Eric url"`
+	FilingLogs        string      `env:"LOG_TOPIC"                    flag:"filing-logs"            flagDesc:"Log frontend streaming api"`
+	RequestTimeout    int         `env:"REQUEST_TIMEOUT"              flag:"request-timeout"        flagDesc:"Request timeout in seconds"`
+	HeartbeatInterval int         `env:"HEARTBEAT_INTERVAL"           flag:"heartbeat-interval"     flagDesc:"Heartbeat interval in seconds"`
+	CacheBrokerURL    string      `env:"CACHE_BROKER_URL"             flag:"cache-broker-url"       flagDesc:"Cache broker url"`
 }
 
 // ServiceConfig returns a ServiceConfig interface for Config.
@@ -56,7 +54,7 @@ func (c *Config) Namespace() string {
 
 var cfg *Config
 
-// Get configures the application and returns the configuration.
+// Get configures the application and returns the default configuration.
 func Get() (*Config, error) {
 	if cfg != nil {
 		return cfg, nil
@@ -64,10 +62,6 @@ func Get() (*Config, error) {
 
 	cfg = &Config{
 		BindAddr:          ":3124",
-		CertFile:          "",
-		KeyFile:           "",
-		EricURL:           "",
-		FilingTopic:       "",
 		RequestTimeout:    86400,
 		HeartbeatInterval: 30,
 	}
