@@ -16,14 +16,14 @@ type Streaming struct {
 }
 
 // AddStream sets up the routing for the particular stream type
-func (st Streaming) AddStream(router *pat.Router, route string, topic string) {
-	router.Path(route).Methods("GET").HandlerFunc(st.process(topic))
+func (st Streaming) AddStream(router *pat.Router, route string, streamName string) {
+	router.Path(route).Methods("GET").HandlerFunc(st.process(streamName))
 }
 
-func (st Streaming) process(topic string) func(w http.ResponseWriter, req *http.Request) {
+func (st Streaming) process(streamName string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 
-		log.InfoC(req.Header.Get("ERIC_Identity"), "consuming from topic", log.Data{"topic": topic})
+		log.InfoC(req.Header.Get("ERIC_Identity"), "consuming from cache-broker", log.Data{"Stream Name": streamName})
 
 		st.ProcessHTTP(w, req)
 	}
