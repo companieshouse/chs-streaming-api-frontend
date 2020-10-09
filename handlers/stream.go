@@ -1,11 +1,8 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 	"time"
-
-	"github.com/companieshouse/chs-go-avro-schemas/data"
 
 	"github.com/companieshouse/chs.go/log"
 	"github.com/gorilla/pat"
@@ -58,11 +55,11 @@ func handleHeartbeatTimeout(contextID string) {
 
 var callResponseWriterWrite = responseWriterWrite
 
-var callCheckIfDataNotPresent = checkIfDataNotPresent
+//var callCheckIfDataNotPresent = checkIfDataNotPresent
 var callRequestTimeOut = handleRequestTimeOut
 var callHeartbeatTimeout = handleHeartbeatTimeout
 
-var callProcessMessageFailed = processMessageFailed
+//var callProcessMessageFailed = processMessageFailed
 var callHandleClientDisconnect = handleClientDisconnect
 
 func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request, stream Stream) {
@@ -82,7 +79,7 @@ func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request, stream
 		case <-requestTimer.C:
 			callRequestTimeOut(contextID)
 			return
-		case <-w.(http.CloseNotifier).CloseNotify():
+		case <-req.Context().Done():
 			callHandleClientDisconnect(contextID)
 			return
 		case <-heathcheckTimer.C:
@@ -97,17 +94,6 @@ func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request, stream
 		//TODO when receiving message from cache-broker then process the message and writing back to response
 		// 	   writer for connected users
 	}
-}
-
-func checkIfDataNotPresent(sch data.ResourceChangedData) error {
-	if len(sch.Data) == 0 {
-		return errors.New("No data is available for the stream")
-	}
-	return nil
-}
-
-func processMessageFailed(contextID string, err error) {
-	log.DebugC(contextID, "error returned from consuming a message : '%s'", log.Data{"err": err})
 }
 
 func responseWriterWrite(w http.ResponseWriter, b []byte) (int, error) {
