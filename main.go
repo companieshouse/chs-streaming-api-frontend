@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/companieshouse/chs-streaming-api-frontend/handlers/filing"
 	"time"
 
 	"github.com/companieshouse/chs-streaming-api-frontend/config"
@@ -65,19 +64,12 @@ func main() {
 		//CacheBroker:       s,
 	}
 
-	filingStream := &filing.Streaming{}
-	companyStream := &filing.Streaming{}
-	insolvencyStream := &filing.Streaming{}
-	chargesStream := &filing.Streaming{}
-	officersStream := &filing.Streaming{}
-	pscStream := &filing.Streaming{}
-
-	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream, filingStream)
-	streamHandler.AddStream(svc.Router(), "/companies", companyProfileStream, companyStream)
-	streamHandler.AddStream(svc.Router(), "/insolvency-cases", companyInsolvencyStream, insolvencyStream)
-	streamHandler.AddStream(svc.Router(), "/charges", companyChargesStream, chargesStream)
-	streamHandler.AddStream(svc.Router(), "/officers", companyOfficersStream, officersStream)
-	streamHandler.AddStream(svc.Router(), "/persons-with-significant-control", companyPSCStream, pscStream)
+	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream)
+	streamHandler.AddStream(svc.Router(), "/companies", companyProfileStream)
+	streamHandler.AddStream(svc.Router(), "/insolvency-cases", companyInsolvencyStream)
+	streamHandler.AddStream(svc.Router(), "/charges", companyChargesStream)
+	streamHandler.AddStream(svc.Router(), "/officers", companyOfficersStream)
+	streamHandler.AddStream(svc.Router(), "/persons-with-significant-control", companyPSCStream)
 
 	svc.Start()
 }

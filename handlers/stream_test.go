@@ -11,8 +11,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-var testFilingStream Stream
-
 var (
 	mockCtlr   *gomock.Controller
 	req        *http.Request
@@ -109,7 +107,7 @@ func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 				testStream.RequestTimeout = 3    //in seconds
 				testStream.HeartbeatInterval = 1 //in seconds
 
-				testStream.ProcessHTTP(w, req, testFilingStream)
+				testStream.ProcessHTTP(w, req)
 
 				So(w.Code, ShouldEqual, 200)
 				So(requestTimeoutCalled, ShouldEqual, true)

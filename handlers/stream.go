@@ -8,15 +8,6 @@ import (
 	"github.com/gorilla/pat"
 )
 
-// Stream should be implemented by the different stream types
-type Stream interface {
-	// Transform modifies data if required within this microservice
-	Transform(req *http.Request, msg *[]byte) error
-
-	// Filter modifies the data to a given filtered view set in the request
-	Filter(req *http.Request, msg *[]byte) error
-}
-
 //Streaming contains necessary config for streaming
 type Streaming struct {
 	RequestTimeout    time.Duration
@@ -25,16 +16,16 @@ type Streaming struct {
 }
 
 // AddStream sets up the routing for the particular stream type
-func (st Streaming) AddStream(router *pat.Router, route string, topic string, stream Stream) {
-	router.Path(route).Methods("GET").HandlerFunc(st.process(topic, stream))
+func (st Streaming) AddStream(router *pat.Router, route string, topic string) {
+	router.Path(route).Methods("GET").HandlerFunc(st.process(topic))
 }
 
-func (st Streaming) process(topic string, stream Stream) func(w http.ResponseWriter, req *http.Request) {
+func (st Streaming) process(topic string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 
 		log.InfoC(req.Header.Get("ERIC_Identity"), "consuming from topic", log.Data{"topic": topic})
 
-		st.ProcessHTTP(w, req, stream)
+		st.ProcessHTTP(w, req)
 	}
 }
 
@@ -55,14 +46,11 @@ func handleHeartbeatTimeout(contextID string) {
 
 var callResponseWriterWrite = responseWriterWrite
 
-//var callCheckIfDataNotPresent = checkIfDataNotPresent
 var callRequestTimeOut = handleRequestTimeOut
 var callHeartbeatTimeout = handleHeartbeatTimeout
-
-//var callProcessMessageFailed = processMessageFailed
 var callHandleClientDisconnect = handleClientDisconnect
 
-func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request, stream Stream) {
+func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 
 	//TODO The frontend will now be decoupled from Kafka, this handler should do two things:
 	//		a. Fetch a range of offsets cached by chs-streaming-api-cache if a timepoint has been specified.

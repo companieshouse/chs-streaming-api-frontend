@@ -1,4 +1,3 @@
-app_name: chs-streaming-api-frontend
 group: streampath
 weight: 200
 routes:
