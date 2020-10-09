@@ -62,6 +62,10 @@ func Get() (*Config, error) {
 
 	cfg = &Config{
 		BindAddr:          ":3124",
+		CertFile:          "",
+		KeyFile:           "",
+		EricURL:           "",
+		FilingLogs:        "",
 		RequestTimeout:    86400,
 		HeartbeatInterval: 30,
 	}
