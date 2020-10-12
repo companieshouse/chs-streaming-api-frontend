@@ -11,4 +11,5 @@ require (
 	github.com/gorilla/pat v1.0.1
 	github.com/justinas/alice v1.2.0
 	github.com/smartystreets/goconvey v1.6.4
+	github.com/stretchr/testify v1.6.0
 )

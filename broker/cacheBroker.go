@@ -1,11 +1,13 @@
 package broker
 
-//A broker to which producers will send messages published to all subscribed consumers.
+import "errors"
+
+//A broker to which cache broker will send messages published to all subscribed users.
 type Broker struct {
 	userSubscribed   chan *Event
 	userUnsubscribed chan *Event
 	users            map[chan string]bool
-	data                 chan string
+	data             chan string
 }
 
 //An event that has been emitted to the given broker instance.
@@ -54,7 +56,7 @@ func (b *Broker) Run() {
 			if _, ok := b.users[unsubscribed.stream]; !ok {
 				unsubscribed.result <- &Result{
 					hasErrors: true,
-					msg:       "Attempted to unsubscribe a consumer that was not subscribed",
+					msg:       "Attempted to unsubscribe a user that was not subscribed",
 				}
 				continue
 			}
@@ -62,10 +64,30 @@ func (b *Broker) Run() {
 			close(unsubscribed.stream)
 			unsubscribed.result <- &Result{}
 		case data := <-b.data:
-			for consumer := range b.users {
-				consumer <- data
+			for user := range b.users {
+				user <- data
 			}
 		}
 	}
 }
 
+//Unsubscribe a user from this broker.
+//If the user isn't subscribed to this broker then an error will be returned.
+func (b *Broker) Unsubscribe(consumer chan string) error {
+	subscription := &Event{
+		stream: consumer,
+		result: make(chan *Result),
+	}
+	defer close(subscription.result)
+	b.userUnsubscribed <- subscription
+	result := <-subscription.result
+	if result.hasErrors {
+		return errors.New(result.msg)
+	}
+	return nil
+}
+
+//Publish a message to all subscribed users.
+func (b *Broker) Publish(msg string) {
+	b.data <- msg
+}

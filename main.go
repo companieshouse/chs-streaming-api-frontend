@@ -51,6 +51,7 @@ func main() {
 
 	//TODO : Call to cache broker
 	log.Info("Getting cache-broker", log.Data{"cache-broker": cacheBroker})
+
 	//s, err := cacheBroker.Get(cfg.CacheBrokerURL, cacheBroker)
 	if err != nil {
 		log.Error(fmt.Errorf("error receiving %s cacheBroker: %s", cacheBroker, err))
