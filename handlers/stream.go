@@ -52,10 +52,6 @@ var callHandleClientDisconnect = handleClientDisconnect
 
 func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 
-	//TODO The frontend will now be decoupled from Kafka, this handler should do two things:
-	//		a. Fetch a range of offsets cached by chs-streaming-api-cache if a timepoint has been specified.
-	//		b. Stream offsets published to it by chs-streaming-api-cache to the connected user.
-
 	contextID := req.Header.Get("ERIC_Identity")
 	log.DebugC(contextID, "Getting offset from the cache broker", log.Data{"timepoint": 10})
 

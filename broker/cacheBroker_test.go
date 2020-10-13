@@ -1,6 +1,5 @@
 package broker
 
-
 import (
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -71,6 +70,3 @@ func TestPublishMessage(t *testing.T) {
 		})
 	})
 }
-
-
-
