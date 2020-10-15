@@ -2,13 +2,13 @@ package handlers
 
 import (
 	"github.com/companieshouse/chs-streaming-api-frontend/unittesting"
-	"net/http/httptest"
-
 	"github.com/golang/mock/gomock"
-	"net/http"
-	"testing"
-
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/mock"
+	"net/http"
+	"net/http/httptest"
+	"sync"
+	"testing"
 )
 
 var (
@@ -63,6 +63,23 @@ func stubHandleClientDisconnect(contextID string) {
 	clientDisconnectCalled = true
 }
 
+type mockBroker struct {
+	mock.Mock
+}
+
+func (b *mockBroker) Subscribe() (chan string, error) {
+	subscription := make(chan string)
+	return subscription, nil
+}
+
+func (b *mockBroker) Unsubscribe(chan string) error {
+	return nil
+}
+
+func (b *mockBroker) Publish(msg string) {
+	b.Called(msg)
+}
+
 func initStreamProcessHTTPTest(t *testing.T) *unittesting.UnitTest {
 	testID := unittesting.GetCallerName()
 	unittesting.ResetInternalStatus()
@@ -97,6 +114,12 @@ func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 
 	unitTest := initStreamProcessHTTPTest(t)
 	Convey(unitTest.GetGiven(), t, func() {
+
+		subscription := make(chan string)
+		cacheBrokerMock := &mockBroker{}
+		cacheBrokerMock.On("Subscribe").Return(subscription, nil)
+		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
+
 		Convey(unitTest.GetWhen(), func() {
 			Convey(unitTest.GetThen(), func() {
 
@@ -106,6 +129,8 @@ func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 				//For test reset streaming request timeout and heartbeatInterval
 				testStream.RequestTimeout = 3    //in seconds
 				testStream.HeartbeatInterval = 1 //in seconds
+				testStream.Broker = cacheBrokerMock
+				testStream.wg = new(sync.WaitGroup)
 
 				testStream.ProcessHTTP(w, req)
 

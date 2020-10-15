@@ -13,10 +13,10 @@ import (
 )
 
 type Client struct {
-	baseurl string
-	broker  Publishable
-	client  Gettable
-	wg      *sync.WaitGroup
+	baseurl   string
+	publisher Publishable
+	client    Gettable
+	Wg        *sync.WaitGroup
 }
 
 type Publishable interface {
@@ -33,11 +33,11 @@ type Result struct {
 	Offset int64  `json:"offset"`
 }
 
-func NewClient(baseurl string, broker Publishable, client Gettable) *Client {
+func NewClient(baseurl string, publisher Publishable, getter Gettable) *Client {
 	return &Client{
 		baseurl,
-		broker,
-		client,
+		publisher,
+		getter,
 		nil,
 	}
 }
@@ -60,9 +60,9 @@ func (c *Client) loop(reader *bufio.Reader) {
 
 		result := &Result{}
 		json.Unmarshal(line, result)
-		c.broker.Publish(result.Data)
-		if c.wg != nil {
-			c.wg.Done()
+		c.publisher.Publish(result.Data)
+		if c.Wg != nil {
+			c.Wg.Done()
 		}
 		time.Sleep(600)
 	}

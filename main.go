@@ -2,16 +2,15 @@ package main
 
 import (
 	"fmt"
-	"time"
-
+	"github.com/companieshouse/chs-streaming-api-frontend/broker"
 	"github.com/companieshouse/chs-streaming-api-frontend/config"
 	"github.com/companieshouse/chs-streaming-api-frontend/handlers"
+	"time"
 
 	"github.com/companieshouse/chs.go/log"
 	"github.com/companieshouse/chs.go/service"
 	"github.com/companieshouse/chs.go/service/authorise"
 	"github.com/companieshouse/chs.go/service/handlers/requestID"
-	"os"
 
 	"github.com/justinas/alice"
 )
@@ -49,20 +48,15 @@ func main() {
 	//service healthcheck
 	svc.Router().Path("/healthcheck").Methods("GET").HandlerFunc(handlers.HealthCheck)
 
-	//TODO : Call to cache broker
+	//connect to cache-broker
 	log.Info("Getting cache-broker", log.Data{"cache-broker": cacheBroker})
+	publisher := broker.NewBroker() //incoming messages
 
-	//s, err := cacheBroker.Get(cfg.CacheBrokerURL, cacheBroker)
-	if err != nil {
-		log.Error(fmt.Errorf("error receiving %s cacheBroker: %s", cacheBroker, err))
-		os.Exit(1)
-	}
-
-	//Streaming Request
+	//Streaming Request Handler
 	streamHandler := handlers.Streaming{
 		RequestTimeout:    time.Duration(cfg.RequestTimeout),
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
-		//CacheBroker:       s,
+		Broker:            publisher,
 	}
 
 	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream)

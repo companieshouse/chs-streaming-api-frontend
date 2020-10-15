@@ -3,7 +3,7 @@ package broker
 import "errors"
 
 //A broker to which cache broker will send messages published to all subscribed users.
-type Broker struct {
+type CacheBroker struct {
 	userSubscribed   chan *Event
 	userUnsubscribed chan *Event
 	users            map[chan string]bool
@@ -23,8 +23,8 @@ type Result struct {
 }
 
 //Create a new broker instance.
-func NewBroker() *Broker {
-	return &Broker{
+func NewBroker() *CacheBroker {
+	return &CacheBroker{
 		userSubscribed:   make(chan *Event),
 		userUnsubscribed: make(chan *Event),
 		users:            make(map[chan string]bool),
@@ -33,7 +33,7 @@ func NewBroker() *Broker {
 }
 
 //Subscribe a user to this broker.
-func (b *Broker) Subscribe() (chan string, error) {
+func (b *CacheBroker) Subscribe() (chan string, error) {
 	stream := make(chan string)
 	subscription := &Event{
 		stream: stream,
@@ -46,7 +46,7 @@ func (b *Broker) Subscribe() (chan string, error) {
 }
 
 //Run this broker instance.
-func (b *Broker) Run() {
+func (b *CacheBroker) Run() {
 	for {
 		select {
 		case subscriber := <-b.userSubscribed:
@@ -73,7 +73,7 @@ func (b *Broker) Run() {
 
 //Unsubscribe a user from this broker.
 //If the user isn't subscribed to this broker then an error will be returned.
-func (b *Broker) Unsubscribe(consumer chan string) error {
+func (b *CacheBroker) Unsubscribe(consumer chan string) error {
 	subscription := &Event{
 		stream: consumer,
 		result: make(chan *Result),
@@ -88,6 +88,6 @@ func (b *Broker) Unsubscribe(consumer chan string) error {
 }
 
 //Publish a message to all subscribed users.
-func (b *Broker) Publish(msg string) {
+func (b *CacheBroker) Publish(msg string) {
 	b.data <- msg
 }
