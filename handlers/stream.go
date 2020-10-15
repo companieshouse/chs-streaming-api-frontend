@@ -1,7 +1,10 @@
 package handlers
 
 import (
+
+	"github.com/companieshouse/chs-streaming-api-cache/logger"
 	"github.com/companieshouse/chs.go/log"
+
 	"github.com/gorilla/pat"
 	"net/http"
 	"sync"
@@ -19,6 +22,7 @@ type Streaming struct {
 	HeartbeatInterval time.Duration
 	Broker            CacheBroker
 	wg                *sync.WaitGroup
+	logger            logger.Logger
 }
 
 // AddStream sets up the routing for the particular stream type
@@ -29,7 +33,7 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 func (st Streaming) process(streamName string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 
-		log.InfoC(req.Header.Get("ERIC_Identity"), "consuming from cache-broker", log.Data{"Stream Name": streamName})
+		st.logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
 		st.ProcessHTTP(w, req)
 	}
 }
@@ -80,12 +84,14 @@ func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
 			w.(http.Flusher).Flush()
 		case msg := <-subscription:
+			st.logger.InfoR(req, "User connected")
 			_, _ = w.Write([]byte(msg))
 			w.(http.Flusher).Flush()
 			if st.wg != nil {
 				st.wg.Done()
 			}
 		case <-req.Context().Done():
+			st.logger.InfoR(req, "User disconnecting")
 			_ = st.Broker.Unsubscribe(subscription)
 			if st.wg != nil {
 				st.wg.Done()

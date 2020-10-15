@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"github.com/companieshouse/chs-streaming-api-frontend/unittesting"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
@@ -16,15 +15,6 @@ var (
 	req        *http.Request
 	testStream Streaming
 )
-
-var StreamProcessHTTPTests = unittesting.Tests{List: unittesting.TestsList{
-	"TestHeartbeatTimeoutAndRequestTimeoutHandledOK": unittesting.UnitTest{
-		Title: "Trap Heartbeat timeout",
-		Given: "Heartbeat timeout sent",
-		Then:  "the heartbeat timeout is called",
-		Vars:  unittesting.GenericMap{},
-	}},
-}
 
 type closeNotifyingRecorder struct {
 	*httptest.ResponseRecorder
@@ -80,18 +70,14 @@ func (b *mockBroker) Publish(msg string) {
 	b.Called(msg)
 }
 
-func initStreamProcessHTTPTest(t *testing.T) *unittesting.UnitTest {
-	testID := unittesting.GetCallerName()
-	unittesting.ResetInternalStatus()
-	unitTest := StreamProcessHTTPTests.InitRunningTest(testID)
+func initStreamProcessHTTPTest(t *testing.T) {
 
 	// Initialise
 	callRequestTimeOut = stubHandleRequestTimeOut
 	callHeartbeatTimeout = stubHandleHeartbeatTimeout
+	callHandleClientDisconnect = stubHandleClientDisconnect
 
 	mockCtlr = gomock.NewController(t)
-
-	callHandleClientDisconnect = stubHandleClientDisconnect
 
 	var reqerr error
 	req, reqerr = http.NewRequest("GET", "/filings", nil)
@@ -105,34 +91,33 @@ func initStreamProcessHTTPTest(t *testing.T) *unittesting.UnitTest {
 
 	//time in seconds
 	testStream = Streaming{RequestTimeout: 100, HeartbeatInterval: 10}
-
-	return &unitTest
 }
 
-//Test for Heart beat
 func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 
-	unitTest := initStreamProcessHTTPTest(t)
-	Convey(unitTest.GetGiven(), t, func() {
+	initStreamProcessHTTPTest(t)
+
+	Convey("given a broker is available", t, func() {
 
 		subscription := make(chan string)
 		cacheBrokerMock := &mockBroker{}
 		cacheBrokerMock.On("Subscribe").Return(subscription, nil)
 		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
 
-		Convey(unitTest.GetWhen(), func() {
-			Convey(unitTest.GetThen(), func() {
 
-				w := newCloseNotifyingRecorder()
-				defer mockCtlr.Finish()
+		Convey("when a stream request is processed", func() {
+			w := newCloseNotifyingRecorder()
+			defer mockCtlr.Finish()
 
-				//For test reset streaming request timeout and heartbeatInterval
-				testStream.RequestTimeout = 3    //in seconds
-				testStream.HeartbeatInterval = 1 //in seconds
-				testStream.Broker = cacheBrokerMock
-				testStream.wg = new(sync.WaitGroup)
+			//For test reset streaming request timeout and heartbeatInterval
+			testStream.RequestTimeout = 3    //in seconds
+			testStream.HeartbeatInterval = 1 //in seconds
+			testStream.Broker = cacheBrokerMock
+			testStream.wg = new(sync.WaitGroup)
 
-				testStream.ProcessHTTP(w, req)
+			testStream.ProcessHTTP(w, req)
+
+			Convey("then broker should be invoked", func() {
 
 				So(w.Code, ShouldEqual, 200)
 				So(requestTimeoutCalled, ShouldEqual, true)

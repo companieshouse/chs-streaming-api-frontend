@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/companieshouse/chs-streaming-api-frontend/broker"
+	"github.com/companieshouse/chs.go/log"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
 	"net/http"
@@ -35,9 +36,27 @@ func (b *mockBody) Close() error {
 	return nil
 }
 
+type mockLogger struct {
+	mock.Mock
+}
+
+func (l *mockLogger) Error(err error, data ...log.Data) {
+	l.Called(mock.Anything)
+}
+
+func (l *mockLogger) Info(msg string, data ...log.Data) {
+	panic("implement me")
+}
+
+func ( mockLogger) InfoR(req *http.Request, message string, data ...log.Data) {
+	panic("implement me")
+}
+
 func TestNewClient(t *testing.T) {
-	Convey("given a new client instance is created", t, func() {
-		actual := NewClient("baseurl", &broker.CacheBroker{}, &http.Client{})
+	Convey("when a new client instance is created", t, func() {
+
+		actual := NewClient("baseurl", &broker.CacheBroker{}, &http.Client{}, &mockLogger{})
+
 		Convey("then a new client should be created", func() {
 			So(actual, ShouldNotBeNil)
 			So(actual.baseurl, ShouldEqual, "baseurl")
@@ -57,13 +76,16 @@ func TestPublishToBroker(t *testing.T) {
 			Body: &mockBody{strings.NewReader("{\"data\":\"{\\\"greetings\\\":\\\"hello\\\"}\",\"offset\":43}\n")},
 		}, nil)
 
-		client := NewClient("baseurl", publisher, getter)
+		logger := &mockLogger{}
+		logger.On("Error", mock.Anything).Return(nil)
+		client := NewClient("baseurl", publisher, getter, logger)
 		client.Wg = new(sync.WaitGroup)
 
 		Convey("when a new message is published from cache broker", func() {
 			client.Wg.Add(1)
 			client.Connect()
 			client.Wg.Wait()
+
 			Convey("Then the message should be forwarded to the broker", func() {
 				So(publisher.AssertCalled(t, "Publish", "{\"greetings\":\"hello\"}"), ShouldBeTrue)
 			})

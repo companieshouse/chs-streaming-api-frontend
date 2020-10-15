@@ -1,6 +1,9 @@
 package broker
 
-import "errors"
+import (
+	"errors"
+	"github.com/companieshouse/chs-streaming-api-frontend/logger"
+)
 
 //A broker to which cache broker will send messages published to all subscribed users.
 type CacheBroker struct {
@@ -8,6 +11,7 @@ type CacheBroker struct {
 	userUnsubscribed chan *Event
 	users            map[chan string]bool
 	data             chan string
+	logger           logger.Logger
 }
 
 //An event that has been emitted to the given broker instance.
