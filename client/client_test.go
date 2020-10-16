@@ -48,7 +48,7 @@ func (l *mockLogger) Info(msg string, data ...log.Data) {
 	panic("implement me")
 }
 
-func ( mockLogger) InfoR(req *http.Request, message string, data ...log.Data) {
+func (mockLogger) InfoR(req *http.Request, message string, data ...log.Data) {
 	panic("implement me")
 }
 
@@ -73,11 +73,12 @@ func TestPublishToBroker(t *testing.T) {
 
 		getter := &mockHttpClient{}
 		getter.On("Get", mock.Anything).Return(&http.Response{StatusCode: 200,
-			Body: &mockBody{strings.NewReader("{\"data\":\"{\\\"greetings\\\":\\\"hello\\\"}\",\"offset\":43}\n")},
+			Body: &mockBody{strings.NewReader("Test Data \n")},
 		}, nil)
 
 		logger := &mockLogger{}
 		logger.On("Error", mock.Anything).Return(nil)
+
 		client := NewClient("baseurl", publisher, getter, logger)
 		client.Wg = new(sync.WaitGroup)
 
@@ -87,7 +88,7 @@ func TestPublishToBroker(t *testing.T) {
 			client.Wg.Wait()
 
 			Convey("Then the message should be forwarded to the broker", func() {
-				So(publisher.AssertCalled(t, "Publish", "{\"greetings\":\"hello\"}"), ShouldBeTrue)
+				So(publisher.AssertCalled(t, "Publish", "Test Data \n"), ShouldBeTrue)
 			})
 		})
 	})

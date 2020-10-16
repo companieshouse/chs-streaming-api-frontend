@@ -104,7 +104,6 @@ func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 		cacheBrokerMock.On("Subscribe").Return(subscription, nil)
 		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
 
-
 		Convey("when a stream request is processed", func() {
 			w := newCloseNotifyingRecorder()
 			defer mockCtlr.Finish()

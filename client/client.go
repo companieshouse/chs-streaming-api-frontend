@@ -2,15 +2,12 @@ package client
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	"github.com/companieshouse/chs.go/log"
 	"net/http"
 	"os"
 	"sync"
-
-	//"sync"
 	"time"
 )
 
@@ -54,8 +51,6 @@ func (c *Client) Connect() {
 }
 
 func (c *Client) loop(reader *bufio.Reader) {
-	//
-	//c.logger.Info("data consumed from cache broker", log.Data{})
 
 	for {
 		line, err := reader.ReadBytes('\n')
@@ -65,15 +60,7 @@ func (c *Client) loop(reader *bufio.Reader) {
 			continue
 		}
 
-		result := &Result{}
-
-		json.Unmarshal(line, result)
-		if err != nil {
-			c.logger.Error(err, log.Data{})
-			continue
-		}
-
-		c.publisher.Publish(result.Data)
+		c.publisher.Publish(string(line))
 		if c.Wg != nil {
 			c.Wg.Done()
 		}

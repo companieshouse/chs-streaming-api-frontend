@@ -31,4 +31,3 @@ func (l *LoggerImpl) Info(msg string, data ...log.Data) {
 func (l *LoggerImpl) InfoR(req *http.Request, message string, data ...log.Data) {
 	log.InfoR(req, message, data...)
 }
-

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-
 	"github.com/companieshouse/chs-streaming-api-cache/logger"
 	"github.com/companieshouse/chs.go/log"
 
@@ -91,8 +90,8 @@ func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 				st.wg.Done()
 			}
 		case <-req.Context().Done():
-			st.logger.InfoR(req, "User disconnecting")
 			_ = st.Broker.Unsubscribe(subscription)
+			st.logger.InfoR(req, "User disconnected")
 			if st.wg != nil {
 				st.wg.Done()
 			}
