@@ -59,6 +59,7 @@ func main() {
 		Broker:            publisher,
 	}
 
+	//Get stream enabled flag values from config
 	isOfficersEnabled := cfg.OfficersEndpointFlag
 	isPSCsEnabled := cfg.PSCsEndpointFlag
 
