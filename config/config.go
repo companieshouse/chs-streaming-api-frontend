@@ -68,6 +68,7 @@ func Get() (*Config, error) {
 		FilingLogs:        "",
 		RequestTimeout:    86400,
 		HeartbeatInterval: 30,
+		CacheBrokerURL:    "",
 	}
 
 	err := gofigure.Gofigure(cfg)

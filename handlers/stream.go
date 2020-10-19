@@ -1,18 +1,27 @@
 package handlers
 
 import (
-	"net/http"
-	"time"
-
+	"github.com/companieshouse/chs-streaming-api-cache/logger"
 	"github.com/companieshouse/chs.go/log"
+
 	"github.com/gorilla/pat"
+	"net/http"
+	"sync"
+	"time"
 )
+
+type CacheBroker interface {
+	Subscribe() (chan string, error)
+	Unsubscribe(chan string) error
+}
 
 //Streaming contains necessary config for streaming
 type Streaming struct {
 	RequestTimeout    time.Duration
 	HeartbeatInterval time.Duration
-	//CacheBroker:       s,
+	Broker            CacheBroker
+	wg                *sync.WaitGroup
+	logger            logger.Logger
 }
 
 // AddStream sets up the routing for the particular stream type
@@ -23,8 +32,7 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 func (st Streaming) process(streamName string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 
-		log.InfoC(req.Header.Get("ERIC_Identity"), "consuming from cache-broker", log.Data{"Stream Name": streamName})
-
+		st.logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
 		st.ProcessHTTP(w, req)
 	}
 }
@@ -52,15 +60,11 @@ var callHandleClientDisconnect = handleClientDisconnect
 
 func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 
-	//TODO The frontend will now be decoupled from Kafka, this handler should do two things:
-	//		a. Fetch a range of offsets cached by chs-streaming-api-cache if a timepoint has been specified.
-	//		b. Stream offsets published to it by chs-streaming-api-cache to the connected user.
-
 	contextID := req.Header.Get("ERIC_Identity")
-	log.DebugC(contextID, "Getting offset from the cache broker", log.Data{"timepoint": 10})
-
 	heathcheckTimer := time.NewTimer(st.HeartbeatInterval * time.Second)
 	requestTimer := time.NewTimer(st.RequestTimeout * time.Second)
+
+	subscription, _ := st.Broker.Subscribe()
 
 	for {
 		select {
@@ -78,9 +82,22 @@ func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 
 			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
 			w.(http.Flusher).Flush()
+		case msg := <-subscription:
+			st.logger.InfoR(req, "User connected")
+			_, _ = w.Write([]byte(msg))
+			w.(http.Flusher).Flush()
+			if st.wg != nil {
+				st.wg.Done()
+			}
+		case <-req.Context().Done():
+			_ = st.Broker.Unsubscribe(subscription)
+			st.logger.InfoR(req, "User disconnected")
+			if st.wg != nil {
+				st.wg.Done()
+			}
+			return
 		}
-		//TODO when receiving message from cache-broker then process the message and writing back to response
-		// 	   writer for connected users
+
 	}
 }
 
