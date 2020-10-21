@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	"github.com/companieshouse/chs-streaming-api-frontend/broker"
 	"github.com/companieshouse/chs-streaming-api-frontend/config"
 	"github.com/companieshouse/chs-streaming-api-frontend/handlers"
@@ -57,6 +58,7 @@ func main() {
 		RequestTimeout:    time.Duration(cfg.RequestTimeout),
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
 		Broker:            publisher,
+		Logger:            logger.NewLogger(),
 	}
 
 	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream)

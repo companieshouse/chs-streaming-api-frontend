@@ -21,7 +21,7 @@ type Streaming struct {
 	HeartbeatInterval time.Duration
 	Broker            CacheBroker
 	wg                *sync.WaitGroup
-	logger            logger.Logger
+	Logger            logger.Logger
 }
 
 // AddStream sets up the routing for the particular stream type
@@ -32,7 +32,7 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 func (st Streaming) process(streamName string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 
-		st.logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
+		st.Logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
 		st.ProcessHTTP(w, req)
 	}
 }
@@ -83,7 +83,7 @@ func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
 			w.(http.Flusher).Flush()
 		case msg := <-subscription:
-			st.logger.InfoR(req, "User connected")
+			st.Logger.InfoR(req, "User connected")
 			_, _ = w.Write([]byte(msg))
 			w.(http.Flusher).Flush()
 			if st.wg != nil {
@@ -91,7 +91,7 @@ func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		case <-req.Context().Done():
 			_ = st.Broker.Unsubscribe(subscription)
-			st.logger.InfoR(req, "User disconnected")
+			st.Logger.InfoR(req, "User disconnected")
 			if st.wg != nil {
 				st.wg.Done()
 			}
