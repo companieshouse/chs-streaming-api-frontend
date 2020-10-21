@@ -7,7 +7,7 @@ import (
 // Config represents the frontend application configuration.
 type Config struct {
 	gofigure          interface{} `order:"env,flag"`
-	BindAddr          string      `env:"BIND_ADDR"                    flag:"bind-addr"              flagDesc:"Bind address"`
+	BindAddress       string      `env:"BIND_ADDRESS"                 flag:"bind-address"           flagDesc:"Bind address"`
 	CertFile          string      `env:"CERT_FILE"                    flag:"cert-file"              flagDesc:"Certificate file"`
 	KeyFile           string      `env:"KEY_FILE"                     flag:"key-file"               flagDesc:"Key file"`
 	EricURL           string      `env:"ERIC_LOCAL_URL"               flag:"eric-url"               flagDesc:"Eric url"`
