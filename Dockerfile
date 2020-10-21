@@ -2,6 +2,6 @@ FROM 169942020521.dkr.ecr.eu-west-1.amazonaws.com/base/golang:1.15-alpine-builde
 
 FROM 169942020521.dkr.ecr.eu-west-1.amazonaws.com/base/golang:1.15-alpine-runtime
 
-CMD ["-bind-address=:9999"]
+CMD ["-bind-address=:6002"]
 
-EXPOSE 9999
+EXPOSE 6002
