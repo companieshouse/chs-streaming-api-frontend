@@ -61,7 +61,6 @@ func Get() (*Config, error) {
 	}
 
 	cfg = &Config{
-		BindAddress:       ":3124",
 		CertFile:          "",
 		KeyFile:           "",
 		EricURL:           "",
