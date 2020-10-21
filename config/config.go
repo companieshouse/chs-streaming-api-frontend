@@ -7,7 +7,7 @@ import (
 // Config represents the frontend application configuration.
 type Config struct {
 	gofigure          interface{} `order:"env,flag"`
-	BindAddr          string      `env:"BIND_ADDR"                    flag:"bind-addr"              flagDesc:"Bind address"`
+	BindAddress       string      `env:"BIND_ADDRESS"                 flag:"bind-address"           flagDesc:"Bind address"`
 	CertFile          string      `env:"CERT_FILE"                    flag:"cert-file"              flagDesc:"Certificate file"`
 	KeyFile           string      `env:"KEY_FILE"                     flag:"key-file"               flagDesc:"Key file"`
 	EricURL           string      `env:"ERIC_LOCAL_URL"               flag:"eric-url"               flagDesc:"Eric url"`
@@ -29,7 +29,7 @@ type ServiceConfig struct {
 
 // BindAddr implements service.Config.BindAddr.
 func (cfg ServiceConfig) BindAddr() string {
-	return cfg.Config.BindAddr
+	return cfg.Config.BindAddress
 }
 
 // CertFile implements service.Config.CertFile.
@@ -61,7 +61,6 @@ func Get() (*Config, error) {
 	}
 
 	cfg = &Config{
-		BindAddr:          ":3124",
 		CertFile:          "",
 		KeyFile:           "",
 		EricURL:           "",
