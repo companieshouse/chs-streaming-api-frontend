@@ -12,11 +12,12 @@ import (
 )
 
 type Client struct {
-	baseurl   string
-	publisher Publishable
-	client    Gettable
-	Wg        *sync.WaitGroup
-	logger    logger.Logger
+	baseurl    string
+	path       string
+	broker     Publishable
+	httpClient Gettable
+	wg         *sync.WaitGroup
+	logger     logger.Logger
 }
 
 type Publishable interface {
@@ -33,18 +34,29 @@ type Result struct {
 	Offset int64  `json:"offset"`
 }
 
-func NewClient(baseurl string, publisher Publishable, getter Gettable, logger logger.Logger) *Client {
+func NewClient(baseurl string, path string, broker Publishable, client Gettable, logger logger.Logger) *Client {
 	return &Client{
 		baseurl,
-		publisher,
-		getter,
+		path,
+		broker,
+		client,
 		nil,
 		logger,
 	}
 }
 
 func (c *Client) Connect() {
-	resp, _ := c.client.Get(c.baseurl)
+	resp, err := c.httpClient.Get(c.baseurl + c.path)
+
+	if err != nil {
+		c.logger.Error(err, log.Data{})
+		panic(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		c.logger.Info("Unable to connect to cache broker from endpoint", log.Data{"endpoint": c.baseurl, "Http Status": resp.StatusCode})
+		panic("Unable to connect to cache broker from endpoint")
+	}
+
 	body := resp.Body
 	reader := bufio.NewReader(body)
 	go c.loop(reader)
@@ -60,9 +72,9 @@ func (c *Client) loop(reader *bufio.Reader) {
 			continue
 		}
 
-		c.publisher.Publish(string(line))
-		if c.Wg != nil {
-			c.Wg.Done()
+		c.broker.Publish(string(line))
+		if c.wg != nil {
+			c.wg.Done()
 		}
 		time.Sleep(600)
 	}
