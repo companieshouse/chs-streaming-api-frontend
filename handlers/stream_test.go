@@ -60,12 +60,13 @@ type mockBroker struct {
 }
 
 func (b *mockBroker) Subscribe() (chan string, error) {
-	subscription := make(chan string)
-	return subscription, nil
+	args := b.Called()
+	return args.Get(0).(chan string), args.Error(1)
 }
 
-func (b *mockBroker) Unsubscribe(chan string) error {
-	return nil
+func (b *mockBroker) Unsubscribe(subscription chan string) error {
+	args := b.Called(subscription)
+	return args.Error(0)
 }
 
 func (b *mockBroker) Publish(msg string) {
@@ -131,9 +132,9 @@ func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 			testStream.RequestTimeout = 3    //in seconds
 			testStream.HeartbeatInterval = 1 //in seconds
 			testStream.wg = new(sync.WaitGroup)
-			testStream.Broker = cacheBrokerMock
+			//testStream.Broker = cacheBrokerMock
 
-			testStream.ProcessHTTP(w, req)
+			testStream.ProcessHTTP(w, req, cacheBrokerMock)
 
 			Convey("then heartbeat should be invoked", func() {
 
@@ -141,6 +142,7 @@ func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 				So(requestTimeoutCalled, ShouldEqual, true)
 				So(clientDisconnectCalled, ShouldEqual, false)
 				So(heartbeatTimeoutCalled, ShouldEqual, true)
+				So(cacheBrokerMock.AssertCalled(t, "Subscribe"), ShouldBeTrue)
 			})
 		})
 	})

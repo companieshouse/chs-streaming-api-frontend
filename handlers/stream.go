@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type CacheBroker interface {
+type Subscribable interface {
 	Subscribe() (chan string, error)
 	Unsubscribe(chan string) error
 }
@@ -23,7 +23,6 @@ type Streaming struct {
 	HeartbeatInterval time.Duration
 	wg                *sync.WaitGroup
 	Logger            logger.Logger
-	Broker            CacheBroker
 }
 
 /*
@@ -50,31 +49,31 @@ var callHandleClientDisconnect = handleClientDisconnect
 // AddStream sets up the routing for the particular stream type
 func (st Streaming) AddStream(router *pat.Router, route string, streamName string, cacheBrokerUrl string) {
 
-	publisher := broker.NewBroker() //incoming messages
+	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
-	client2 := client.NewClient(cacheBrokerUrl, publisher, http.DefaultClient, st.Logger)
+	client2 := client.NewClient(cacheBrokerUrl, broker, http.DefaultClient, st.Logger)
 	go client2.Connect()
-	go publisher.Run()
+	go broker.Run()
 
-	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName))
+	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker))
 }
 
 // Handle Request
-func (st Streaming) HandleRequest(streamName string) func(writer http.ResponseWriter, req *http.Request) {
+func (st Streaming) HandleRequest(streamName string, broker Subscribable) func(writer http.ResponseWriter, req *http.Request) {
 	return func(writer http.ResponseWriter, req *http.Request) {
 
 		st.Logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
-		st.ProcessHTTP(writer, req)
+		st.ProcessHTTP(writer, req, broker)
 	}
 }
 
-func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request) {
+func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request, broker Subscribable) {
 
 	contextID := request.Header.Get("ERIC_Identity")
 	heathcheckTimer := time.NewTimer(st.HeartbeatInterval * time.Second)
 	requestTimer := time.NewTimer(st.RequestTimeout * time.Second)
 
-	subscription, _ := st.Broker.Subscribe()
+	subscription, _ := broker.Subscribe()
 
 	for {
 		select {
@@ -100,7 +99,7 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 				st.wg.Done()
 			}
 		case <-request.Context().Done():
-			_ = st.Broker.Unsubscribe(subscription)
+			_ = broker.Unsubscribe(subscription)
 			st.Logger.InfoR(request, "User disconnected")
 			if st.wg != nil {
 				st.wg.Done()
