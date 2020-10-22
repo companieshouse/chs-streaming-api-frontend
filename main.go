@@ -52,14 +52,15 @@ func main() {
 		RequestTimeout:    time.Duration(cfg.RequestTimeout),
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
 		Logger:            logger.NewLogger(),
+		CacheBrokerURL:    cfg.CacheBrokerURL,
 	}
 
-	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream, cfg.CacheBrokerURL)
-	streamHandler.AddStream(svc.Router(), "/companies", companyProfileStream, cfg.CacheBrokerURL)
-	streamHandler.AddStream(svc.Router(), "/insolvency-cases", companyInsolvencyStream, cfg.CacheBrokerURL)
-	streamHandler.AddStream(svc.Router(), "/charges", companyChargesStream, cfg.CacheBrokerURL)
-	streamHandler.AddStream(svc.Router(), "/officers", companyOfficersStream, cfg.CacheBrokerURL)
-	streamHandler.AddStream(svc.Router(), "/persons-with-significant-control", companyPSCStream, cfg.CacheBrokerURL)
+	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream)
+	streamHandler.AddStream(svc.Router(), "/companies", companyProfileStream)
+	streamHandler.AddStream(svc.Router(), "/insolvency-cases", companyInsolvencyStream)
+	streamHandler.AddStream(svc.Router(), "/charges", companyChargesStream)
+	streamHandler.AddStream(svc.Router(), "/officers", companyOfficersStream)
+	streamHandler.AddStream(svc.Router(), "/persons-with-significant-control", companyPSCStream)
 
 	svc.Start()
 }

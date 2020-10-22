@@ -81,12 +81,12 @@ func TestPublishToBroker(t *testing.T) {
 		logger.On("Error", mock.Anything).Return(nil)
 
 		client := NewClient("baseurl", "/path", publisher, getter, logger)
-		client.Wg = new(sync.WaitGroup)
+		client.wg = new(sync.WaitGroup)
 
 		Convey("when a new message is published from cache broker", func() {
-			client.Wg.Add(1)
+			client.wg.Add(1)
 			client.Connect()
-			client.Wg.Wait()
+			client.wg.Wait()
 
 			Convey("Then the message should be forwarded to the broker", func() {
 				So(publisher.AssertCalled(t, "Publish", "Test Data \n"), ShouldBeTrue)

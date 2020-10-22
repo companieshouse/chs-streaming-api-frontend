@@ -16,7 +16,7 @@ type Client struct {
 	path       string
 	broker     Publishable
 	httpClient Gettable
-	Wg         *sync.WaitGroup
+	wg         *sync.WaitGroup
 	logger     logger.Logger
 }
 
@@ -73,8 +73,8 @@ func (c *Client) loop(reader *bufio.Reader) {
 		}
 
 		c.broker.Publish(string(line))
-		if c.Wg != nil {
-			c.Wg.Done()
+		if c.wg != nil {
+			c.wg.Done()
 		}
 		time.Sleep(600)
 	}

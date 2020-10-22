@@ -23,6 +23,7 @@ type Streaming struct {
 	HeartbeatInterval time.Duration
 	wg                *sync.WaitGroup
 	Logger            logger.Logger
+	CacheBrokerURL    string
 }
 
 /*
@@ -47,11 +48,11 @@ var callHeartbeatTimeout = handleHeartbeatTimeout
 var callHandleClientDisconnect = handleClientDisconnect
 
 // AddStream sets up the routing for the particular stream type
-func (st Streaming) AddStream(router *pat.Router, route string, streamName string, cacheBrokerUrl string) {
+func (st Streaming) AddStream(router *pat.Router, route string, streamName string) {
 
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
-	client2 := client.NewClient(cacheBrokerUrl, route, broker, http.DefaultClient, st.Logger)
+	client2 := client.NewClient(st.CacheBrokerURL, route, broker, http.DefaultClient, st.Logger)
 	go client2.Connect()
 	go broker.Run()
 
