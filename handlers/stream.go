@@ -26,6 +26,14 @@ type Streaming struct {
 	CacheBrokerURL    string
 }
 
+type Publisher struct {
+	data chan string
+}
+
+func (p *Publisher) Publish(msg string) {
+	p.data <- msg
+}
+
 /*
   Have mini functions for handling timer events so that we can stub these in tests to verify that they are called
 */
@@ -56,15 +64,59 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 	go client2.Connect()
 	go broker.Run()
 
-	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker))
+	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker, route))
 }
 
 // Handle Request
-func (st Streaming) HandleRequest(streamName string, broker Subscribable) func(writer http.ResponseWriter, req *http.Request) {
+func (st Streaming) HandleRequest(streamName string, broker Subscribable, route string) func(writer http.ResponseWriter, req *http.Request) {
 	return func(writer http.ResponseWriter, req *http.Request) {
 
-		st.Logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
-		st.ProcessHTTP(writer, req, broker)
+		if req.URL.Query().Get("timepoint") != "" {
+			st.Logger.InfoR(req, "consuming from cache-broker, timepoint specified", log.Data{"Stream Name": streamName})
+			st.ProcessOffsetHTTP(writer, req, route)
+		} else {
+			st.Logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
+			st.ProcessHTTP(writer, req, broker)
+		}
+	}
+}
+
+func (st Streaming) ProcessOffsetHTTP(writer http.ResponseWriter, request *http.Request, route string) {
+	contextID := request.Header.Get("ERIC_Identity")
+	heathcheckTimer := time.NewTimer(st.HeartbeatInterval * time.Second)
+	requestTimer := time.NewTimer(st.RequestTimeout * time.Second)
+
+	data := make(chan string)
+	publisher := &Publisher{data}
+	client2 := client.NewClient(st.CacheBrokerURL, route, publisher, http.DefaultClient, st.Logger)
+	go client2.Connect()
+
+	for {
+		select {
+		case <-requestTimer.C:
+			callRequestTimeOut(contextID)
+			return
+		case <-request.Context().Done():
+			callHandleClientDisconnect(contextID)
+			close(data)
+			return
+		case <-heathcheckTimer.C:
+			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
+
+			writer.(http.Flusher).Flush()
+			callHeartbeatTimeout(contextID)
+
+			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
+			writer.(http.Flusher).Flush()
+
+		case msg := <-data:
+			st.Logger.InfoR(request, "User connected")
+			_, _ = writer.Write([]byte(msg))
+			writer.(http.Flusher).Flush()
+			if st.wg != nil {
+				st.wg.Done()
+			}
+		}
 	}
 }
 
