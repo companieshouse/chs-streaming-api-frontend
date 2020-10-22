@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/companieshouse/chs-streaming-api-frontend/logger"
-	"github.com/companieshouse/chs-streaming-api-frontend/broker"
 	"github.com/companieshouse/chs-streaming-api-frontend/config"
 	"github.com/companieshouse/chs-streaming-api-frontend/handlers"
+	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	"time"
 
 	"github.com/companieshouse/chs.go/log"
@@ -17,7 +16,6 @@ import (
 )
 
 const (
-	cacheBroker             = "cache-broker"
 	filingHistoryStream     = "stream-filing-history"
 	companyProfileStream    = "stream-company-profile"
 	companyInsolvencyStream = "stream-company-insolvency"
@@ -49,24 +47,19 @@ func main() {
 	//service healthcheck
 	svc.Router().Path("/healthcheck").Methods("GET").HandlerFunc(handlers.HealthCheck)
 
-	//connect to cache-broker
-	log.Info("Getting cache-broker", log.Data{"cache-broker": cacheBroker})
-	publisher := broker.NewBroker() //incoming messages
-
 	//Streaming Request Handler
 	streamHandler := handlers.Streaming{
 		RequestTimeout:    time.Duration(cfg.RequestTimeout),
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
-		Broker:            publisher,
 		Logger:            logger.NewLogger(),
 	}
 
-	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream)
-	streamHandler.AddStream(svc.Router(), "/companies", companyProfileStream)
-	streamHandler.AddStream(svc.Router(), "/insolvency-cases", companyInsolvencyStream)
-	streamHandler.AddStream(svc.Router(), "/charges", companyChargesStream)
-	streamHandler.AddStream(svc.Router(), "/officers", companyOfficersStream)
-	streamHandler.AddStream(svc.Router(), "/persons-with-significant-control", companyPSCStream)
+	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream, cfg.CacheBrokerURL)
+	streamHandler.AddStream(svc.Router(), "/companies", companyProfileStream, cfg.CacheBrokerURL)
+	streamHandler.AddStream(svc.Router(), "/insolvency-cases", companyInsolvencyStream, cfg.CacheBrokerURL)
+	streamHandler.AddStream(svc.Router(), "/charges", companyChargesStream, cfg.CacheBrokerURL)
+	streamHandler.AddStream(svc.Router(), "/officers", companyOfficersStream, cfg.CacheBrokerURL)
+	streamHandler.AddStream(svc.Router(), "/persons-with-significant-control", companyPSCStream, cfg.CacheBrokerURL)
 
 	svc.Start()
 }

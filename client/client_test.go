@@ -60,8 +60,8 @@ func TestNewClient(t *testing.T) {
 		Convey("then a new client should be created", func() {
 			So(actual, ShouldNotBeNil)
 			So(actual.baseurl, ShouldEqual, "baseurl")
-			So(actual.publisher, ShouldResemble, &broker.CacheBroker{})
-			So(actual.client, ShouldResemble, &http.Client{})
+			So(actual.broker, ShouldResemble, &broker.CacheBroker{})
+			So(actual.httpClient, ShouldResemble, &http.Client{})
 		})
 	})
 }

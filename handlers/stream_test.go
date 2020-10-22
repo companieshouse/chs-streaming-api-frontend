@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/companieshouse/chs.go/log"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
@@ -53,6 +54,7 @@ func stubHandleClientDisconnect(contextID string) {
 	clientDisconnectCalled = true
 }
 
+// Mock Broker
 type mockBroker struct {
 	mock.Mock
 }
@@ -68,6 +70,23 @@ func (b *mockBroker) Unsubscribe(chan string) error {
 
 func (b *mockBroker) Publish(msg string) {
 	b.Called(msg)
+}
+
+// Mock Logger
+type mockLogger struct {
+	mock.Mock
+}
+
+func (l *mockLogger) Error(err error, data ...log.Data) {
+	l.Called(mock.Anything)
+}
+
+func (l *mockLogger) Info(msg string, data ...log.Data) {
+	panic("implement me")
+}
+
+func (mockLogger) InfoR(req *http.Request, message string, data ...log.Data) {
+	panic("implement me")
 }
 
 func initStreamProcessHTTPTest(t *testing.T) {
@@ -111,12 +130,12 @@ func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 			//For test reset streaming request timeout and heartbeatInterval
 			testStream.RequestTimeout = 3    //in seconds
 			testStream.HeartbeatInterval = 1 //in seconds
-			testStream.Broker = cacheBrokerMock
 			testStream.wg = new(sync.WaitGroup)
+			testStream.Broker = cacheBrokerMock
 
 			testStream.ProcessHTTP(w, req)
 
-			Convey("then broker should be invoked", func() {
+			Convey("then heartbeat should be invoked", func() {
 
 				So(w.Code, ShouldEqual, 200)
 				So(requestTimeoutCalled, ShouldEqual, true)

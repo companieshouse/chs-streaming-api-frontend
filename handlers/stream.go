@@ -1,7 +1,9 @@
 package handlers
 
 import (
-	"github.com/companieshouse/chs-streaming-api-cache/logger"
+	"github.com/companieshouse/chs-streaming-api-frontend/broker"
+	"github.com/companieshouse/chs-streaming-api-frontend/client"
+	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	"github.com/companieshouse/chs.go/log"
 
 	"github.com/gorilla/pat"
@@ -19,22 +21,9 @@ type CacheBroker interface {
 type Streaming struct {
 	RequestTimeout    time.Duration
 	HeartbeatInterval time.Duration
-	Broker            CacheBroker
 	wg                *sync.WaitGroup
 	Logger            logger.Logger
-}
-
-// AddStream sets up the routing for the particular stream type
-func (st Streaming) AddStream(router *pat.Router, route string, streamName string) {
-	router.Path(route).Methods("GET").HandlerFunc(st.process(streamName))
-}
-
-func (st Streaming) process(streamName string) func(w http.ResponseWriter, req *http.Request) {
-	return func(w http.ResponseWriter, req *http.Request) {
-
-		st.Logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
-		st.ProcessHTTP(w, req)
-	}
+	Broker            CacheBroker
 }
 
 /*
@@ -58,9 +47,30 @@ var callRequestTimeOut = handleRequestTimeOut
 var callHeartbeatTimeout = handleHeartbeatTimeout
 var callHandleClientDisconnect = handleClientDisconnect
 
-func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
+// AddStream sets up the routing for the particular stream type
+func (st Streaming) AddStream(router *pat.Router, route string, streamName string, cacheBrokerUrl string) {
 
-	contextID := req.Header.Get("ERIC_Identity")
+	publisher := broker.NewBroker() //incoming messages
+	//connect to cache-broker
+	client2 := client.NewClient(cacheBrokerUrl, publisher, http.DefaultClient, st.Logger)
+	go client2.Connect()
+	go publisher.Run()
+
+	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName))
+}
+
+// Handle Request
+func (st Streaming) HandleRequest(streamName string) func(writer http.ResponseWriter, req *http.Request) {
+	return func(writer http.ResponseWriter, req *http.Request) {
+
+		st.Logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
+		st.ProcessHTTP(writer, req)
+	}
+}
+
+func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request) {
+
+	contextID := request.Header.Get("ERIC_Identity")
 	heathcheckTimer := time.NewTimer(st.HeartbeatInterval * time.Second)
 	requestTimer := time.NewTimer(st.RequestTimeout * time.Second)
 
@@ -71,27 +81,27 @@ func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 		case <-requestTimer.C:
 			callRequestTimeOut(contextID)
 			return
-		case <-req.Context().Done():
+		case <-request.Context().Done():
 			callHandleClientDisconnect(contextID)
 			return
 		case <-heathcheckTimer.C:
 			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
 
-			w.(http.Flusher).Flush()
+			writer.(http.Flusher).Flush()
 			callHeartbeatTimeout(contextID)
 
 			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
-			w.(http.Flusher).Flush()
+			writer.(http.Flusher).Flush()
 		case msg := <-subscription:
-			st.Logger.InfoR(req, "User connected")
-			_, _ = w.Write([]byte(msg))
-			w.(http.Flusher).Flush()
+			st.Logger.InfoR(request, "User connected")
+			_, _ = writer.Write([]byte(msg))
+			writer.(http.Flusher).Flush()
 			if st.wg != nil {
 				st.wg.Done()
 			}
-		case <-req.Context().Done():
+		case <-request.Context().Done():
 			_ = st.Broker.Unsubscribe(subscription)
-			st.Logger.InfoR(req, "User disconnected")
+			st.Logger.InfoR(request, "User disconnected")
 			if st.wg != nil {
 				st.wg.Done()
 			}
@@ -101,6 +111,6 @@ func (st Streaming) ProcessHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func responseWriterWrite(w http.ResponseWriter, b []byte) (int, error) {
-	return w.Write(b)
+func responseWriterWrite(writer http.ResponseWriter, b []byte) (int, error) {
+	return writer.Write(b)
 }
