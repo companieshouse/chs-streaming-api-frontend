@@ -55,11 +55,12 @@ func (mockLogger) InfoR(req *http.Request, message string, data ...log.Data) {
 func TestNewClient(t *testing.T) {
 	Convey("when a new client instance is created", t, func() {
 
-		actual := NewClient("baseurl", &broker.CacheBroker{}, &http.Client{}, &mockLogger{})
+		actual := NewClient("baseurl", "/path", &broker.CacheBroker{}, &http.Client{}, &mockLogger{})
 
 		Convey("then a new client should be created", func() {
 			So(actual, ShouldNotBeNil)
 			So(actual.baseurl, ShouldEqual, "baseurl")
+			So(actual.path, ShouldEqual, "/path")
 			So(actual.broker, ShouldResemble, &broker.CacheBroker{})
 			So(actual.httpClient, ShouldResemble, &http.Client{})
 		})
@@ -79,7 +80,7 @@ func TestPublishToBroker(t *testing.T) {
 		logger := &mockLogger{}
 		logger.On("Error", mock.Anything).Return(nil)
 
-		client := NewClient("baseurl", publisher, getter, logger)
+		client := NewClient("baseurl", "/path", publisher, getter, logger)
 		client.Wg = new(sync.WaitGroup)
 
 		Convey("when a new message is published from cache broker", func() {

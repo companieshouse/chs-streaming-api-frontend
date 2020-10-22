@@ -51,7 +51,7 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
-	client2 := client.NewClient(cacheBrokerUrl, broker, http.DefaultClient, st.Logger)
+	client2 := client.NewClient(cacheBrokerUrl, route, broker, http.DefaultClient, st.Logger)
 	go client2.Connect()
 	go broker.Run()
 

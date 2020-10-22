@@ -13,6 +13,7 @@ import (
 
 type Client struct {
 	baseurl    string
+	path       string
 	broker     Publishable
 	httpClient Gettable
 	Wg         *sync.WaitGroup
@@ -33,9 +34,10 @@ type Result struct {
 	Offset int64  `json:"offset"`
 }
 
-func NewClient(baseurl string, broker Publishable, client Gettable, logger logger.Logger) *Client {
+func NewClient(baseurl string, path string, broker Publishable, client Gettable, logger logger.Logger) *Client {
 	return &Client{
 		baseurl,
+		path,
 		broker,
 		client,
 		nil,
@@ -44,7 +46,7 @@ func NewClient(baseurl string, broker Publishable, client Gettable, logger logge
 }
 
 func (c *Client) Connect() {
-	resp, err := c.httpClient.Get(c.baseurl)
+	resp, err := c.httpClient.Get(c.baseurl + c.path)
 
 	if err != nil {
 		c.logger.Error(err, log.Data{})
