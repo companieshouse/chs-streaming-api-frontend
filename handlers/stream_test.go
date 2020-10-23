@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	"github.com/companieshouse/chs.go/log"
-	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
 	"net/http"
@@ -12,8 +12,6 @@ import (
 )
 
 var (
-	mockCtlr   *gomock.Controller
-	req        *http.Request
 	testStream Streaming
 )
 
@@ -97,20 +95,12 @@ func initStreamProcessHTTPTest(t *testing.T) {
 	callHeartbeatTimeout = stubHandleHeartbeatTimeout
 	callHandleClientDisconnect = stubHandleClientDisconnect
 
-	mockCtlr = gomock.NewController(t)
-
-	var reqerr error
-	req, reqerr = http.NewRequest("GET", "/filings", nil)
-	if reqerr != nil {
-		t.Errorf("Fail to create http request : %s", reqerr.Error())
-	}
-
 	requestTimeoutCalled = false
 	clientDisconnectCalled = false
 	heartbeatTimeoutCalled = false
 
 	//time in seconds
-	testStream = Streaming{RequestTimeout: 100, HeartbeatInterval: 10}
+	testStream = Streaming{RequestTimeout: 100, HeartbeatInterval: 10, Logger:logger.NewLogger()}
 }
 
 func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
@@ -123,16 +113,15 @@ func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 		cacheBrokerMock := &mockBroker{}
 		cacheBrokerMock.On("Subscribe").Return(subscription, nil)
 		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
+		req := httptest.NewRequest("GET", "/filings", nil)
 
 		Convey("when a stream request is processed", func() {
 			w := newCloseNotifyingRecorder()
-			defer mockCtlr.Finish()
 
 			//For test reset streaming request timeout and heartbeatInterval
 			testStream.RequestTimeout = 3    //in seconds
 			testStream.HeartbeatInterval = 1 //in seconds
 			testStream.wg = new(sync.WaitGroup)
-			//testStream.Broker = cacheBrokerMock
 
 			testStream.ProcessHTTP(w, req, cacheBrokerMock)
 
@@ -146,4 +135,81 @@ func TestHeartbeatTimeoutAndRequestTimeoutHandledOK(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestAMessagePublishedByTheBrokerIsWrittenToResponse(t *testing.T) {
+
+	initStreamProcessHTTPTest(t)
+
+	Convey("given a broker is available", t, func() {
+
+		subscription := make(chan string)
+		cacheBrokerMock := &mockBroker{}
+		cacheBrokerMock.On("Subscribe").Return(subscription, nil)
+		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
+		req := httptest.NewRequest("GET", "/filings", nil)
+
+		w := newCloseNotifyingRecorder()
+
+		//For test reset streaming request timeout and heartbeatInterval
+		testStream.RequestTimeout = 3    //in seconds
+		testStream.HeartbeatInterval = 1 //in seconds
+		testStream.wg = new(sync.WaitGroup)
+		testStream.wg.Add(1)
+
+		go testStream.ProcessHTTP(w, req, cacheBrokerMock)
+
+		Convey("when a message is published by the broker", func() {
+
+			subscription <- "hello"
+			testStream.wg.Wait()
+
+			Convey("then the message should be pushed to the user", func() {
+
+				So(w.Code, ShouldEqual, 200)
+				So(w.Body.Bytes(), ShouldResemble, []byte("hello"))
+				So(cacheBrokerMock.AssertCalled(t, "Subscribe"), ShouldBeTrue)
+			})
+		})
+	})
+}
+
+func TestUnsubscribeFromBrokerWhenUserDisconnects(t *testing.T) {
+
+	initStreamProcessHTTPTest(t)
+
+	Convey("given a broker is available", t, func() {
+
+		subscription := make(chan string)
+		cacheBrokerMock := &mockBroker{}
+		cacheBrokerMock.On("Subscribe").Return(subscription, nil)
+		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
+		req := httptest.NewRequest("GET", "/filings", nil)
+
+		w := newCloseNotifyingRecorder()
+
+		//For test reset streaming request timeout and heartbeatInterval
+		testStream.RequestTimeout = 3    //in seconds
+		testStream.HeartbeatInterval = 1 //in seconds
+		testStream.wg = new(sync.WaitGroup)
+		testStream.wg.Add(1)
+
+		go testStream.ProcessHTTP(w, req, cacheBrokerMock)
+
+		Convey("when the user disconnects from the stream", func() {
+
+
+
+			Convey("then the message should be pushed to the user", func() {
+
+				So(w.Code, ShouldEqual, 200)
+				So(w.Body.Bytes(), ShouldResemble, []byte("hello"))
+				So(cacheBrokerMock.AssertCalled(t, "Subscribe"), ShouldBeTrue)
+			})
+		})
+	})
+}
+
+func TestWhenOffsetIsSpecifiedANewClientInstanceIsStarted(t *testing.T) {
+
 }
