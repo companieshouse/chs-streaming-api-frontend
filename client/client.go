@@ -18,6 +18,7 @@ type Client struct {
 	httpClient Gettable
 	wg         *sync.WaitGroup
 	logger     logger.Logger
+	Offset     string
 }
 
 type Publishable interface {
@@ -36,17 +37,21 @@ type Result struct {
 
 func NewClient(baseurl string, path string, broker Publishable, client Gettable, logger logger.Logger) *Client {
 	return &Client{
-		baseurl,
-		path,
-		broker,
-		client,
-		nil,
-		logger,
+		baseurl:    baseurl,
+		path:       path,
+		broker:     broker,
+		httpClient: client,
+		wg:         nil,
+		logger:     logger,
 	}
 }
 
 func (c *Client) Connect() {
-	resp, err := c.httpClient.Get(c.baseurl + c.path)
+	url := c.baseurl + c.path
+	if c.Offset != "" {
+		url += "?timepoint=" + c.Offset
+	}
+	resp, err := c.httpClient.Get(url)
 
 	if err != nil {
 		c.logger.Error(err, log.Data{})

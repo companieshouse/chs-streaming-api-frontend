@@ -89,6 +89,8 @@ func (st Streaming) ProcessOffsetHTTP(writer http.ResponseWriter, request *http.
 	data := make(chan string)
 	publisher := &Publisher{data}
 	client2 := client.NewClient(st.CacheBrokerURL, route, publisher, http.DefaultClient, st.Logger)
+	client2.Offset = request.URL.Query().Get("timepoint")
+
 	go client2.Connect()
 
 	for {
@@ -97,8 +99,8 @@ func (st Streaming) ProcessOffsetHTTP(writer http.ResponseWriter, request *http.
 			callRequestTimeOut(contextID)
 			return
 		case <-request.Context().Done():
-			callHandleClientDisconnect(contextID)
 			close(data)
+			callHandleClientDisconnect(contextID)
 			return
 		case <-heathcheckTimer.C:
 			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
@@ -108,7 +110,6 @@ func (st Streaming) ProcessOffsetHTTP(writer http.ResponseWriter, request *http.
 
 			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
 			writer.(http.Flusher).Flush()
-
 		case msg := <-data:
 			st.Logger.InfoR(request, "User connected")
 			_, _ = writer.Write([]byte(msg))
