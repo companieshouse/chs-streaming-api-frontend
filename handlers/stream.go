@@ -17,6 +17,18 @@ type Subscribable interface {
 	Unsubscribe(chan string) error
 }
 
+type TimerFactory struct {
+	unit time.Duration
+}
+
+func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
+	return time.NewTimer(duration * t.unit)
+}
+
+type TimestampGeneratable interface {
+	GetTimer(duration time.Duration) *time.Timer
+}
+
 //Streaming contains necessary config for streaming
 type Streaming struct {
 	RequestTimeout    time.Duration
@@ -24,6 +36,7 @@ type Streaming struct {
 	wg                *sync.WaitGroup
 	Logger            logger.Logger
 	CacheBrokerURL    string
+	timerFactory      TimestampGeneratable
 }
 
 type Publisher struct {
@@ -37,23 +50,11 @@ func (p *Publisher) Publish(msg string) {
 /*
   Have mini functions for handling timer events so that we can stub these in tests to verify that they are called
 */
-func handleRequestTimeOut(contextID string) {
-	log.DebugC(contextID, "connection expired, disconnecting client ")
-}
-
-func handleClientDisconnect(contextID string) {
-	log.DebugC(contextID, "connection closed by client")
-}
-
 func handleHeartbeatTimeout(contextID string) {
 	log.TraceC(contextID, "application heartbeat")
 }
 
-var callResponseWriterWrite = responseWriterWrite
-
-var callRequestTimeOut = handleRequestTimeOut
 var callHeartbeatTimeout = handleHeartbeatTimeout
-var callHandleClientDisconnect = handleClientDisconnect
 
 // AddStream sets up the routing for the particular stream type
 func (st Streaming) AddStream(router *pat.Router, route string, streamName string) {
@@ -96,11 +97,14 @@ func (st Streaming) ProcessOffsetHTTP(writer http.ResponseWriter, request *http.
 	for {
 		select {
 		case <-requestTimer.C:
-			callRequestTimeOut(contextID)
+			log.DebugC(contextID, "connection expired, disconnecting client ")
 			return
 		case <-request.Context().Done():
 			close(data)
-			callHandleClientDisconnect(contextID)
+			log.DebugC(contextID, "connection closed by client")
+			if st.wg != nil {
+				st.wg.Done()
+			}
 			return
 		case <-heathcheckTimer.C:
 			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
@@ -123,35 +127,20 @@ func (st Streaming) ProcessOffsetHTTP(writer http.ResponseWriter, request *http.
 
 func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request, broker Subscribable) {
 
-	contextID := request.Header.Get("ERIC_Identity")
-	heathcheckTimer := time.NewTimer(st.HeartbeatInterval * time.Second)
-	requestTimer := time.NewTimer(st.RequestTimeout * time.Second)
+	heartbeatTimer := st.timerFactory.GetTimer(st.HeartbeatInterval)
+	requestTimer := st.timerFactory.GetTimer(st.RequestTimeout)
 
 	subscription, _ := broker.Subscribe()
 
 	for {
 		select {
 		case <-requestTimer.C:
-			callRequestTimeOut(contextID)
-			return
-		case <-request.Context().Done():
-			callHandleClientDisconnect(contextID)
-			return
-		case <-heathcheckTimer.C:
-			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
-
-			writer.(http.Flusher).Flush()
-			callHeartbeatTimeout(contextID)
-
-			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
-			writer.(http.Flusher).Flush()
-		case msg := <-subscription:
-			st.Logger.InfoR(request, "User connected")
-			_, _ = writer.Write([]byte(msg))
-			writer.(http.Flusher).Flush()
+			_ = broker.Unsubscribe(subscription)
+			log.InfoR(request, "connection expired, disconnecting client ")
 			if st.wg != nil {
 				st.wg.Done()
 			}
+			return
 		case <-request.Context().Done():
 			_ = broker.Unsubscribe(subscription)
 			st.Logger.InfoR(request, "User disconnected")
@@ -159,6 +148,21 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 				st.wg.Done()
 			}
 			return
+		case <-heartbeatTimer.C:
+			heartbeatTimer.Reset(st.HeartbeatInterval * time.Second)
+			_, _ = writer.Write([]byte("\n"))
+			writer.(http.Flusher).Flush()
+			st.Logger.InfoR(request, "Application heartbeat")
+			if st.wg != nil {
+				st.wg.Done()
+			}
+		case msg := <-subscription:
+			st.Logger.InfoR(request, "User connected")
+			_, _ = writer.Write([]byte(msg))
+			writer.(http.Flusher).Flush()
+			if st.wg != nil {
+				st.wg.Done()
+			}
 		}
 
 	}
