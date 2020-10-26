@@ -17,11 +17,9 @@ type TimerFactory struct {
 }
 
 type ClientFactory struct {
-
 }
 
 type PublisherFactory struct {
-
 }
 
 func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
@@ -89,7 +87,7 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
 	client2 := client.NewClient(st.CacheBrokerURL, route, broker, http.DefaultClient, st.Logger)
-	go client2.Connect()
+	client2.Connect()
 	go broker.Run()
 
 	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker, route))
@@ -117,7 +115,7 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 	if route != "" {
 		client2 := st.clientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
 		client2.SetOffset(request.URL.Query().Get("timepoint"))
-		go client2.Connect()
+		client2.Connect()
 	}
 
 	subscription, _ := broker.Subscribe()
