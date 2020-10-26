@@ -25,7 +25,12 @@ type ClientFactory struct {
 
 }
 
-func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) *client.Client {
+type PublisherFactory struct {
+
+}
+
+
+func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
 	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger)
 }
 
@@ -33,8 +38,24 @@ func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
 	return time.NewTimer(duration * t.unit)
 }
 
+func (p *PublisherFactory) GetPublisher(data chan string) client.Publishable {
+	return &Publisher{data}
+}
+
 type TimestampGeneratable interface {
 	GetTimer(duration time.Duration) *time.Timer
+}
+
+type Connectable interface {
+	Connect()
+}
+
+type ClientGettable interface {
+	GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable
+}
+
+type PublisherGettable interface {
+	GetPublisher(data chan string) client.Publishable
 }
 
 //Streaming contains necessary config for streaming
@@ -45,7 +66,8 @@ type Streaming struct {
 	Logger            logger.Logger
 	CacheBrokerURL    string
 	timerFactory      TimestampGeneratable
-	clientFactory     ClientFactory
+	clientFactory     ClientGettable
+	PublisherFactory  PublisherGettable
 }
 
 type Publisher struct {
@@ -97,7 +119,7 @@ func (st Streaming) ProcessOffsetHTTP(writer http.ResponseWriter, request *http.
 	requestTimer := time.NewTimer(st.RequestTimeout * time.Second)
 
 	data := make(chan string)
-	publisher := &Publisher{data}
+	publisher := st.PublisherFactory.GetPublisher(data)
 	client2 := client.NewClient(st.CacheBrokerURL, route, publisher, http.DefaultClient, st.Logger)
 	client2.Offset = request.URL.Query().Get("timepoint")
 

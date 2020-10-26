@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/companieshouse/chs-streaming-api-frontend/client"
 	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
@@ -23,6 +24,26 @@ type mockContext struct {
 type mockTimerFactory struct {
 	C chan time.Time
 	mock.Mock
+}
+
+type mockClientFactory struct {
+	mock.Mock
+}
+
+type mockPublisherFactory struct {
+	mock.Mock
+}
+
+type mockClient struct {
+	mock.Mock
+}
+
+type mockPublisher struct {
+	mock.Mock
+}
+
+func (c *mockClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
+	return c.Called(baseurl, path, publisher, logger).Get(0).(Connectable)
 }
 
 // Mock Broker
@@ -206,15 +227,23 @@ func TestOffsetSpecified (t *testing.T) {
 		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(0))
 		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(math.MaxInt64))
 
+		publisherFactory := &mockPublisherFactory{}
+		publisherFactory.On("GetPublisher")
+
+		clientFactory := &mockClientFactory{}
+		clientFactory.On("GetClient", "baseurl", "/filings") .Return()
+		//baseurl string, path string, publisher client.Publishable, logger logger.Logger
 		req := httptest.NewRequest("GET", "/filings?timepoint=1", nil)
 
 		w := newCloseNotifyingRecorder()
 
 		//For test reset streaming request timeout and heartbeatInterval
 		testStream := &Streaming{
+			CacheBrokerURL:    "baseurl",
 			RequestTimeout:    3,
 			HeartbeatInterval: 1,
 			timerFactory:      timerFactory,
+			clientFactory:     clientFactory,
 			Logger:            logger.NewLogger(),
 			wg:                new(sync.WaitGroup),
 		}
