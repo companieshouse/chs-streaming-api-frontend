@@ -194,6 +194,51 @@ func TestSendNewlineIfHeartbeat(t *testing.T) {
 	})
 }
 
+func TestOffsetSpecified (t *testing.T) {
+	Convey("Given a user has connected to the stream", t, func() {
+		subscription := make(chan string)
+
+		cacheBrokerMock := &mockBroker{}
+		cacheBrokerMock.On("Subscribe").Return(subscription, nil)
+		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
+
+		timerFactory := &mockTimerFactory{}
+		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(0))
+		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(math.MaxInt64))
+
+		req := httptest.NewRequest("GET", "/filings?timepoint=1", nil)
+
+		w := newCloseNotifyingRecorder()
+
+		//For test reset streaming request timeout and heartbeatInterval
+		testStream := &Streaming{
+			RequestTimeout:    3,
+			HeartbeatInterval: 1,
+			timerFactory:      timerFactory,
+			Logger:            logger.NewLogger(),
+			wg:                new(sync.WaitGroup),
+		}
+		testStream.wg.Add(1)
+
+		go testStream.ProcessOffsetHTTP(w, req, "/filings")
+
+		Convey("When a message is published by the broker", func() {
+
+			subscription <- "hello"
+			testStream.wg.Wait()
+
+			Convey("Then the message should be pushed to the user", func() {
+
+				So(w.Code, ShouldEqual, 200)
+				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(3)), ShouldBeTrue)
+				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(1)), ShouldBeTrue)
+				So(w.Body.Bytes(), ShouldResemble, []byte("hello"))
+				So(cacheBrokerMock.AssertCalled(t, "Subscribe"), ShouldBeTrue)
+			})
+		})
+	})
+}
+
 func newCloseNotifyingRecorder() *closeNotifyingRecorder {
 	return &closeNotifyingRecorder{httptest.NewRecorder(), make(chan bool, 1)}
 }

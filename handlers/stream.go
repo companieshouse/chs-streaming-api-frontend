@@ -21,6 +21,14 @@ type TimerFactory struct {
 	unit time.Duration
 }
 
+type ClientFactory struct {
+
+}
+
+func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) *client.Client {
+	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger)
+}
+
 func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
 	return time.NewTimer(duration * t.unit)
 }
@@ -37,6 +45,7 @@ type Streaming struct {
 	Logger            logger.Logger
 	CacheBrokerURL    string
 	timerFactory      TimestampGeneratable
+	clientFactory     ClientFactory
 }
 
 type Publisher struct {
