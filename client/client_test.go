@@ -19,6 +19,15 @@ func (b *mockBroker) Publish(msg string) {
 	b.Called(msg)
 }
 
+func (b *mockBroker) Subscribe() (chan string, error) {
+	args := b.Called()
+	return args.Get(0).(chan string), args.Error(1)
+}
+
+func (b *mockBroker) Unsubscribe(subscription chan string) error {
+	return b.Called(subscription).Error(0)
+}
+
 type mockHttpClient struct {
 	mock.Mock
 }

@@ -23,6 +23,8 @@ type Client struct {
 
 type Publishable interface {
 	Publish(msg string)
+	Subscribe() (chan string, error)
+	Unsubscribe(subscription chan string) error
 }
 
 type Gettable interface {
@@ -65,6 +67,10 @@ func (c *Client) Connect() {
 	body := resp.Body
 	reader := bufio.NewReader(body)
 	go c.loop(reader)
+}
+
+func (c *Client) SetOffset(offset string) {
+	c.Offset = offset
 }
 
 func (c *Client) loop(reader *bufio.Reader) {

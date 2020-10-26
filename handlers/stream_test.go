@@ -30,20 +30,12 @@ type mockClientFactory struct {
 	mock.Mock
 }
 
-type mockPublisherFactory struct {
-	mock.Mock
-}
-
 type mockClient struct {
 	mock.Mock
 }
 
 type mockPublisher struct {
 	mock.Mock
-}
-
-func (c *mockClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
-	return c.Called(baseurl, path, publisher, logger).Get(0).(Connectable)
 }
 
 // Mock Broker
@@ -74,7 +66,7 @@ func TestAMessagePublishedByTheBrokerIsWrittenToResponse(t *testing.T) {
 		}
 		testStream.wg.Add(1)
 
-		go testStream.ProcessHTTP(w, req, cacheBrokerMock)
+		go testStream.ProcessHTTP(w, req, "", cacheBrokerMock)
 
 		Convey("When a message is published by the broker", func() {
 
@@ -119,7 +111,7 @@ func TestUnsubscribeFromBrokerWhenUserDisconnects(t *testing.T) {
 		}
 		testStream.wg.Add(1)
 
-		go testStream.ProcessHTTP(w, req, cacheBrokerMock)
+		go testStream.ProcessHTTP(w, req, "", cacheBrokerMock)
 
 		Convey("When the user disconnects from the stream", func() {
 			connectionClosed <- struct{}{}
@@ -161,7 +153,7 @@ func TestUnsubscribeFromBrokerIfConnectionExpired(t *testing.T) {
 		}
 		testStream.wg.Add(1)
 
-		go testStream.ProcessHTTP(w, req, cacheBrokerMock)
+		go testStream.ProcessHTTP(w, req, "", cacheBrokerMock)
 		Convey("When the connection times out", func() {
 			testStream.wg.Wait()
 			Convey("Then the user should be unsubscribed from the broker", func() {
@@ -201,7 +193,7 @@ func TestSendNewlineIfHeartbeat(t *testing.T) {
 		}
 		testStream.wg.Add(1)
 
-		go testStream.ProcessHTTP(w, req, cacheBrokerMock)
+		go testStream.ProcessHTTP(w, req, "", cacheBrokerMock)
 		Convey("When the connection times out", func() {
 			testStream.wg.Wait()
 			Convey("Then the user should be unsubscribed from the broker", func() {
@@ -215,23 +207,26 @@ func TestSendNewlineIfHeartbeat(t *testing.T) {
 	})
 }
 
-func TestOffsetSpecified (t *testing.T) {
+func TestOffsetSpecified(t *testing.T) {
 	Convey("Given a user has connected to the stream", t, func() {
 		subscription := make(chan string)
 
-		cacheBrokerMock := &mockBroker{}
-		cacheBrokerMock.On("Subscribe").Return(subscription, nil)
-		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
-
 		timerFactory := &mockTimerFactory{}
-		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(0))
+		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(math.MaxInt64))
 		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(math.MaxInt64))
 
-		publisherFactory := &mockPublisherFactory{}
-		publisherFactory.On("GetPublisher")
+		publisher := &mockPublisher{}
+		publisher.On("Publish", mock.Anything).Return()
+		publisher.On("Subscribe").Return(subscription, nil)
+		publisher.On("Unsubscribe", mock.Anything).Return(nil)
+
+		client := &mockClient{}
+		client.On("Connect").Return()
+		client.On("SetOffset", mock.Anything).Return()
 
 		clientFactory := &mockClientFactory{}
-		clientFactory.On("GetClient", "baseurl", "/filings") .Return()
+		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(client)
+
 		//baseurl string, path string, publisher client.Publishable, logger logger.Logger
 		req := httptest.NewRequest("GET", "/filings?timepoint=1", nil)
 
@@ -249,20 +244,20 @@ func TestOffsetSpecified (t *testing.T) {
 		}
 		testStream.wg.Add(1)
 
-		go testStream.ProcessOffsetHTTP(w, req, "/filings")
+		go testStream.ProcessHTTP(w, req, "/filings", publisher)
 
-		Convey("When a message is published by the broker", func() {
-
+		Convey("When offsets beyond a specific timepoint are consumed from the cache service", func() {
 			subscription <- "hello"
 			testStream.wg.Wait()
-
 			Convey("Then the message should be pushed to the user", func() {
-
 				So(w.Code, ShouldEqual, 200)
+				So(w.Body.Bytes(), ShouldResemble, []byte("hello"))
 				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(3)), ShouldBeTrue)
 				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(1)), ShouldBeTrue)
-				So(w.Body.Bytes(), ShouldResemble, []byte("hello"))
-				So(cacheBrokerMock.AssertCalled(t, "Subscribe"), ShouldBeTrue)
+				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", publisher, mock.Anything), ShouldBeTrue)
+				So(client.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
+				So(client.AssertCalled(t, "Connect"), ShouldBeTrue)
+				So(publisher.AssertCalled(t, "Subscribe"), ShouldBeTrue)
 			})
 		})
 	})
@@ -315,4 +310,29 @@ func (b *mockBroker) Unsubscribe(subscription chan string) error {
 
 func (b *mockBroker) Publish(msg string) {
 	b.Called(msg)
+}
+
+func (c *mockClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
+	return c.Called(baseurl, path, publisher, logger).Get(0).(Connectable)
+}
+
+func (c *mockClient) Connect() {
+	c.Called()
+}
+
+func (c *mockClient) SetOffset(offset string) {
+	c.Called(offset)
+}
+
+func (p *mockPublisher) Publish(msg string) {
+	p.Called(msg)
+}
+
+func (p *mockPublisher) Subscribe() (chan string, error) {
+	args := p.Called()
+	return args.Get(0).(chan string), args.Error(1)
+}
+
+func (p *mockPublisher) Unsubscribe(subscription chan string) error {
+	return p.Called(subscription).Error(0)
 }
