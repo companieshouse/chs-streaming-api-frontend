@@ -13,7 +13,7 @@ import (
 )
 
 type TimerFactory struct {
-	unit time.Duration
+	Unit time.Duration
 }
 
 type ClientFactory struct {
@@ -27,7 +27,7 @@ func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.
 }
 
 func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
-	return time.NewTimer(duration * t.unit)
+	return time.NewTimer(duration * t.Unit)
 }
 
 func (p *PublisherFactory) GetPublisher() client.Publishable {
@@ -58,9 +58,9 @@ type Streaming struct {
 	wg                *sync.WaitGroup
 	Logger            logger.Logger
 	CacheBrokerURL    string
-	timerFactory      TimestampGeneratable
-	clientFactory     ClientGettable
-	publisherFactory  PublisherGettable
+	TimerFactory      TimestampGeneratable
+	ClientFactory     ClientGettable
+	PublisherFactory  PublisherGettable
 }
 
 type Publisher struct {
@@ -87,7 +87,7 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
 	client2 := client.NewClient(st.CacheBrokerURL, route, broker, http.DefaultClient, st.Logger)
-	client2.Connect()
+	go client2.Connect()
 	go broker.Run()
 
 	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker, route))
@@ -99,7 +99,7 @@ func (st Streaming) HandleRequest(streamName string, broker client.Publishable, 
 
 		if req.URL.Query().Get("timepoint") != "" {
 			st.Logger.InfoR(req, "consuming from cache-broker, timepoint specified", log.Data{"Stream Name": streamName})
-			st.ProcessHTTP(writer, req, route, st.publisherFactory.GetPublisher())
+			st.ProcessHTTP(writer, req, route, st.PublisherFactory.GetPublisher())
 		} else {
 			st.Logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
 			st.ProcessHTTP(writer, req, "", broker)
@@ -109,13 +109,13 @@ func (st Streaming) HandleRequest(streamName string, broker client.Publishable, 
 
 func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request, route string, broker client.Publishable) {
 
-	heartbeatTimer := st.timerFactory.GetTimer(st.HeartbeatInterval)
-	requestTimer := st.timerFactory.GetTimer(st.RequestTimeout)
+	heartbeatTimer := st.TimerFactory.GetTimer(st.HeartbeatInterval)
+	requestTimer := st.TimerFactory.GetTimer(st.RequestTimeout)
 
 	if route != "" {
-		client2 := st.clientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
+		client2 := st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
 		client2.SetOffset(request.URL.Query().Get("timepoint"))
-		client2.Connect()
+		go client2.Connect()
 	}
 
 	subscription, _ := broker.Subscribe()

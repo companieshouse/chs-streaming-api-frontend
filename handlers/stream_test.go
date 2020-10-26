@@ -60,7 +60,7 @@ func TestAMessagePublishedByTheBrokerIsWrittenToResponse(t *testing.T) {
 		testStream := &Streaming{
 			RequestTimeout:    3,
 			HeartbeatInterval: 1,
-			timerFactory:      timerFactory,
+			TimerFactory:      timerFactory,
 			Logger:            logger.NewLogger(),
 			wg:                new(sync.WaitGroup),
 		}
@@ -105,7 +105,7 @@ func TestUnsubscribeFromBrokerWhenUserDisconnects(t *testing.T) {
 		testStream := &Streaming{
 			RequestTimeout:    3,
 			HeartbeatInterval: 1,
-			timerFactory:      timerFactory,
+			TimerFactory:      timerFactory,
 			Logger:            logger.NewLogger(),
 			wg:                new(sync.WaitGroup),
 		}
@@ -147,7 +147,7 @@ func TestUnsubscribeFromBrokerIfConnectionExpired(t *testing.T) {
 		testStream := &Streaming{
 			RequestTimeout:    3,
 			HeartbeatInterval: 1,
-			timerFactory:      timerFactory,
+			TimerFactory:      timerFactory,
 			Logger:            logger.NewLogger(),
 			wg:                new(sync.WaitGroup),
 		}
@@ -187,7 +187,7 @@ func TestSendNewlineIfHeartbeat(t *testing.T) {
 		testStream := &Streaming{
 			RequestTimeout:    3,
 			HeartbeatInterval: 1,
-			timerFactory:      timerFactory,
+			TimerFactory:      timerFactory,
 			Logger:            logger.NewLogger(),
 			wg:                new(sync.WaitGroup),
 		}
@@ -237,8 +237,8 @@ func TestOffsetSpecified(t *testing.T) {
 			CacheBrokerURL:    "baseurl",
 			RequestTimeout:    3,
 			HeartbeatInterval: 1,
-			timerFactory:      timerFactory,
-			clientFactory:     clientFactory,
+			TimerFactory:      timerFactory,
+			ClientFactory:     clientFactory,
 			Logger:            logger.NewLogger(),
 			wg:                new(sync.WaitGroup),
 		}
