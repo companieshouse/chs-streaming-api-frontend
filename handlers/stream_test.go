@@ -263,6 +263,128 @@ func TestOffsetSpecified(t *testing.T) {
 	})
 }
 
+func TestCloseClientWhenUserDisconnects(t *testing.T) {
+	Convey("Given a user has connected to the stream", t, func() {
+		subscription := make(chan string)
+		connectionClosed := make(chan struct{})
+
+		timerFactory := &mockTimerFactory{}
+		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(math.MaxInt64))
+		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(math.MaxInt64))
+
+		publisher := &mockPublisher{}
+		publisher.On("Publish", mock.Anything).Return()
+		publisher.On("Subscribe").Return(subscription, nil)
+		publisher.On("Unsubscribe", mock.Anything).Return(nil)
+
+		client := &mockClient{}
+		client.On("Connect").Return()
+		client.On("SetOffset", mock.Anything).Return()
+		client.On("Close").Return()
+
+		clientFactory := &mockClientFactory{}
+		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(client)
+
+		//baseurl string, path string, publisher client.Publishable, logger logger.Logger
+		context := &mockContext{}
+		context.On("Done").Return(connectionClosed)
+		req := httptest.NewRequest("GET", "/filings?timepoint=1", nil).WithContext(context)
+
+		w := newCloseNotifyingRecorder()
+
+		//For test reset streaming request timeout and heartbeatInterval
+		testStream := &Streaming{
+			CacheBrokerURL:    "baseurl",
+			RequestTimeout:    3,
+			HeartbeatInterval: 1,
+			TimerFactory:      timerFactory,
+			ClientFactory:     clientFactory,
+			Logger:            logger.NewLogger(),
+			wg:                new(sync.WaitGroup),
+		}
+		testStream.wg.Add(1)
+
+		go testStream.ProcessHTTP(w, req, "/filings", publisher)
+
+		Convey("When the user disconnects from the stream", func() {
+			connectionClosed <- struct{}{}
+			testStream.wg.Wait()
+			Convey("Then the user should be unsubscribed from the broker and the client should be closed", func() {
+				So(w.Code, ShouldEqual, 200)
+				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(3)), ShouldBeTrue)
+				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(1)), ShouldBeTrue)
+				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", publisher, mock.Anything), ShouldBeTrue)
+				So(client.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
+				So(client.AssertCalled(t, "Connect"), ShouldBeTrue)
+				So(publisher.AssertCalled(t, "Subscribe"), ShouldBeTrue)
+				So(publisher.AssertCalled(t, "Unsubscribe", subscription), ShouldBeTrue)
+				So(client.AssertCalled(t, "Close"), ShouldBeTrue)
+			})
+		})
+	})
+}
+
+func TestCloseClientIfConnectionExpired(t *testing.T) {
+	Convey("Given a user has connected to the stream", t, func() {
+		subscription := make(chan string)
+		connectionClosed := make(chan struct{})
+
+		timerFactory := &mockTimerFactory{}
+		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(0))
+		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(math.MaxInt64))
+
+		publisher := &mockPublisher{}
+		publisher.On("Publish", mock.Anything).Return()
+		publisher.On("Subscribe").Return(subscription, nil)
+		publisher.On("Unsubscribe", mock.Anything).Return(nil)
+
+		client := &mockClient{}
+		client.On("Connect").Return()
+		client.On("SetOffset", mock.Anything).Return()
+		client.On("Close").Return()
+
+		clientFactory := &mockClientFactory{}
+		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(client)
+
+		//baseurl string, path string, publisher client.Publishable, logger logger.Logger
+		context := &mockContext{}
+		context.On("Done").Return(connectionClosed)
+		req := httptest.NewRequest("GET", "/filings?timepoint=1", nil).WithContext(context)
+
+		w := newCloseNotifyingRecorder()
+
+		//For test reset streaming request timeout and heartbeatInterval
+		testStream := &Streaming{
+			CacheBrokerURL:    "baseurl",
+			RequestTimeout:    3,
+			HeartbeatInterval: 1,
+			TimerFactory:      timerFactory,
+			ClientFactory:     clientFactory,
+			Logger:            logger.NewLogger(),
+			wg:                new(sync.WaitGroup),
+		}
+		testStream.wg.Add(1)
+
+		go testStream.ProcessHTTP(w, req, "/filings", publisher)
+
+		Convey("When the user disconnects from the stream", func() {
+			connectionClosed <- struct{}{}
+			testStream.wg.Wait()
+			Convey("Then the user should be unsubscribed from the broker and the client should be closed", func() {
+				So(w.Code, ShouldEqual, 200)
+				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(3)), ShouldBeTrue)
+				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(1)), ShouldBeTrue)
+				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", publisher, mock.Anything), ShouldBeTrue)
+				So(client.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
+				So(client.AssertCalled(t, "Connect"), ShouldBeTrue)
+				So(publisher.AssertCalled(t, "Subscribe"), ShouldBeTrue)
+				So(publisher.AssertCalled(t, "Unsubscribe", subscription), ShouldBeTrue)
+				So(client.AssertCalled(t, "Close"), ShouldBeTrue)
+			})
+		})
+	})
+}
+
 func newCloseNotifyingRecorder() *closeNotifyingRecorder {
 	return &closeNotifyingRecorder{httptest.NewRecorder(), make(chan bool, 1)}
 }
@@ -322,6 +444,10 @@ func (c *mockClient) Connect() {
 
 func (c *mockClient) SetOffset(offset string) {
 	c.Called(offset)
+}
+
+func (c *mockClient) Close() {
+	c.Called()
 }
 
 func (p *mockPublisher) Publish(msg string) {
