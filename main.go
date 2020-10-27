@@ -53,7 +53,7 @@ func main() {
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
 		Logger:            logger.NewLogger(),
 		CacheBrokerURL:    cfg.CacheBrokerURL,
-		TimerFactory:      &handlers.TimerFactory{time.Second},
+		TimerFactory:      &handlers.TimerFactory{Unit: time.Second},
 		ClientFactory:     &handlers.ClientFactory{},
 		PublisherFactory:  &handlers.PublisherFactory{},
 	}

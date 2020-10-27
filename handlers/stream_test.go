@@ -136,7 +136,7 @@ func TestUnsubscribeFromBrokerIfConnectionExpired(t *testing.T) {
 		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
 
 		timerFactory := &mockTimerFactory{}
-		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(0))
+		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(3))
 		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(math.MaxInt64))
 
 		req := httptest.NewRequest("GET", "/filings", nil)
@@ -177,7 +177,7 @@ func TestSendNewlineIfHeartbeat(t *testing.T) {
 
 		timerFactory := &mockTimerFactory{}
 		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(math.MaxInt64))
-		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(0))
+		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(100))
 
 		req := httptest.NewRequest("GET", "/filings", nil)
 
@@ -220,14 +220,14 @@ func TestOffsetSpecified(t *testing.T) {
 		publisher.On("Subscribe").Return(subscription, nil)
 		publisher.On("Unsubscribe", mock.Anything).Return(nil)
 
-		client := &mockClient{}
-		client.On("Connect").Return()
-		client.On("SetOffset", mock.Anything).Return()
+		serviceClient := &mockClient{}
+		serviceClient.On("Connect").Return(&client.ResponseStatus{Code: 200})
+		serviceClient.On("SetOffset", mock.Anything).Return()
 
 		clientFactory := &mockClientFactory{}
-		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(client)
+		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(serviceClient)
 
-		//baseurl string, path string, publisher client.Publishable, logger logger.Logger
+		//baseurl string, path string, publisher serviceClient.Publishable, logger logger.Logger
 		req := httptest.NewRequest("GET", "/filings?timepoint=1", nil)
 
 		w := newCloseNotifyingRecorder()
@@ -255,8 +255,8 @@ func TestOffsetSpecified(t *testing.T) {
 				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(3)), ShouldBeTrue)
 				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(1)), ShouldBeTrue)
 				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", publisher, mock.Anything), ShouldBeTrue)
-				So(client.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
-				So(client.AssertCalled(t, "Connect"), ShouldBeTrue)
+				So(serviceClient.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
+				So(serviceClient.AssertCalled(t, "Connect"), ShouldBeTrue)
 				So(publisher.AssertCalled(t, "Subscribe"), ShouldBeTrue)
 			})
 		})
@@ -277,15 +277,15 @@ func TestCloseClientWhenUserDisconnects(t *testing.T) {
 		publisher.On("Subscribe").Return(subscription, nil)
 		publisher.On("Unsubscribe", mock.Anything).Return(nil)
 
-		client := &mockClient{}
-		client.On("Connect").Return()
-		client.On("SetOffset", mock.Anything).Return()
-		client.On("Close").Return()
+		serviceClient := &mockClient{}
+		serviceClient.On("Connect").Return(&client.ResponseStatus{Code: 200})
+		serviceClient.On("SetOffset", mock.Anything).Return()
+		serviceClient.On("Close").Return()
 
 		clientFactory := &mockClientFactory{}
-		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(client)
+		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(serviceClient)
 
-		//baseurl string, path string, publisher client.Publishable, logger logger.Logger
+		//baseurl string, path string, publisher serviceClient.Publishable, logger logger.Logger
 		context := &mockContext{}
 		context.On("Done").Return(connectionClosed)
 		req := httptest.NewRequest("GET", "/filings?timepoint=1", nil).WithContext(context)
@@ -314,11 +314,11 @@ func TestCloseClientWhenUserDisconnects(t *testing.T) {
 				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(3)), ShouldBeTrue)
 				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(1)), ShouldBeTrue)
 				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", publisher, mock.Anything), ShouldBeTrue)
-				So(client.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
-				So(client.AssertCalled(t, "Connect"), ShouldBeTrue)
+				So(serviceClient.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
+				So(serviceClient.AssertCalled(t, "Connect"), ShouldBeTrue)
 				So(publisher.AssertCalled(t, "Subscribe"), ShouldBeTrue)
 				So(publisher.AssertCalled(t, "Unsubscribe", subscription), ShouldBeTrue)
-				So(client.AssertCalled(t, "Close"), ShouldBeTrue)
+				So(serviceClient.AssertCalled(t, "Close"), ShouldBeTrue)
 			})
 		})
 	})
@@ -338,15 +338,14 @@ func TestCloseClientIfConnectionExpired(t *testing.T) {
 		publisher.On("Subscribe").Return(subscription, nil)
 		publisher.On("Unsubscribe", mock.Anything).Return(nil)
 
-		client := &mockClient{}
-		client.On("Connect").Return()
-		client.On("SetOffset", mock.Anything).Return()
-		client.On("Close").Return()
+		serviceClient := &mockClient{}
+		serviceClient.On("Connect").Return(&client.ResponseStatus{Code: 200})
+		serviceClient.On("SetOffset", mock.Anything).Return()
+		serviceClient.On("Close").Return()
 
 		clientFactory := &mockClientFactory{}
-		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(client)
+		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(serviceClient)
 
-		//baseurl string, path string, publisher client.Publishable, logger logger.Logger
 		context := &mockContext{}
 		context.On("Done").Return(connectionClosed)
 		req := httptest.NewRequest("GET", "/filings?timepoint=1", nil).WithContext(context)
@@ -375,11 +374,11 @@ func TestCloseClientIfConnectionExpired(t *testing.T) {
 				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(3)), ShouldBeTrue)
 				So(timerFactory.AssertCalled(t, "GetTimer", time.Duration(1)), ShouldBeTrue)
 				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", publisher, mock.Anything), ShouldBeTrue)
-				So(client.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
-				So(client.AssertCalled(t, "Connect"), ShouldBeTrue)
+				So(serviceClient.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
+				So(serviceClient.AssertCalled(t, "Connect"), ShouldBeTrue)
 				So(publisher.AssertCalled(t, "Subscribe"), ShouldBeTrue)
 				So(publisher.AssertCalled(t, "Unsubscribe", subscription), ShouldBeTrue)
-				So(client.AssertCalled(t, "Close"), ShouldBeTrue)
+				So(serviceClient.AssertCalled(t, "Close"), ShouldBeTrue)
 			})
 		})
 	})
@@ -438,8 +437,8 @@ func (c *mockClientFactory) GetClient(baseurl string, path string, publisher cli
 	return c.Called(baseurl, path, publisher, logger).Get(0).(Connectable)
 }
 
-func (c *mockClient) Connect() {
-	c.Called()
+func (c *mockClient) Connect() *client.ResponseStatus {
+	return c.Called().Get(0).(*client.ResponseStatus)
 }
 
 func (c *mockClient) SetOffset(offset string) {

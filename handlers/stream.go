@@ -23,7 +23,7 @@ type PublisherFactory struct {
 }
 
 func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
-	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger, false)
+	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger)
 }
 
 func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
@@ -31,7 +31,11 @@ func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
 }
 
 func (p *PublisherFactory) GetPublisher() client.Publishable {
-	return &Publisher{}
+	return &Publisher{data: make(chan string)}
+}
+
+func (p *PublisherFactory) GetBroker() RunnablePublisher {
+	return broker.NewBroker()
 }
 
 type TimestampGeneratable interface {
@@ -39,9 +43,14 @@ type TimestampGeneratable interface {
 }
 
 type Connectable interface {
-	Connect()
+	Connect() *client.ResponseStatus
 	SetOffset(offset string)
 	Close()
+}
+
+type RunnablePublisher interface {
+	client.Publishable
+	Run()
 }
 
 type ClientGettable interface {
@@ -50,6 +59,7 @@ type ClientGettable interface {
 
 type PublisherGettable interface {
 	GetPublisher() client.Publishable
+	GetBroker() RunnablePublisher
 }
 
 //Streaming contains necessary config for streaming
@@ -73,7 +83,6 @@ func (p *Publisher) Publish(msg string) {
 }
 
 func (p *Publisher) Subscribe() (chan string, error) {
-	p.data = make(chan string)
 	return p.data, nil
 }
 
@@ -87,8 +96,8 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
-	client2 := client.NewClient(st.CacheBrokerURL, route, broker, http.DefaultClient, st.Logger, true)
-	go client2.Connect()
+	client2 := st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
+	client2.Connect()
 	go broker.Run()
 
 	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker, route))
@@ -97,7 +106,6 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 // Handle Request
 func (st Streaming) HandleRequest(streamName string, broker client.Publishable, route string) func(writer http.ResponseWriter, req *http.Request) {
 	return func(writer http.ResponseWriter, req *http.Request) {
-
 		if req.URL.Query().Get("timepoint") != "" {
 			st.Logger.InfoR(req, "consuming from cache-broker, timepoint specified", log.Data{"Stream Name": streamName})
 			st.ProcessHTTP(writer, req, route, st.PublisherFactory.GetPublisher())
@@ -109,25 +117,25 @@ func (st Streaming) HandleRequest(streamName string, broker client.Publishable, 
 }
 
 func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request, route string, broker client.Publishable) {
+	var serviceClient Connectable
 
 	heartbeatTimer := st.TimerFactory.GetTimer(st.HeartbeatInterval)
 	requestTimer := st.TimerFactory.GetTimer(st.RequestTimeout)
 
-	var client2 Connectable
-
+	st.Logger.Info("Handling offset")
 	if route != "" {
-		client2 = st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
-		client2.SetOffset(request.URL.Query().Get("timepoint"))
-		go client2.Connect()
+		serviceClient = st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
+		serviceClient.SetOffset(request.URL.Query().Get("timepoint"))
+		serviceClient.Connect()
 	}
-
+	st.Logger.Info("Subscribing to broker")
 	subscription, _ := broker.Subscribe()
 
 	for {
 		select {
 		case <-requestTimer.C:
-			if client2 != nil {
-				client2.Close()
+			if serviceClient != nil {
+				serviceClient.Close()
 			}
 			_ = broker.Unsubscribe(subscription)
 			log.InfoR(request, "connection expired, disconnecting client ")
@@ -136,8 +144,8 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 			}
 			return
 		case <-request.Context().Done():
-			if client2 != nil {
-				client2.Close()
+			if serviceClient != nil {
+				serviceClient.Close()
 			}
 			_ = broker.Unsubscribe(subscription)
 			st.Logger.InfoR(request, "User disconnected")
@@ -154,7 +162,6 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 				st.wg.Done()
 			}
 		case msg := <-subscription:
-			st.Logger.InfoR(request, "User connected")
 			_, _ = writer.Write([]byte(msg))
 			writer.(http.Flusher).Flush()
 			if st.wg != nil {
