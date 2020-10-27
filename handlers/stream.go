@@ -23,7 +23,7 @@ type PublisherFactory struct {
 }
 
 func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
-	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger)
+	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger, false)
 }
 
 func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
@@ -87,7 +87,7 @@ func (st Streaming) AddStream(router *pat.Router, route string, streamName strin
 
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
-	client2 := client.NewClient(st.CacheBrokerURL, route, broker, http.DefaultClient, st.Logger)
+	client2 := client.NewClient(st.CacheBrokerURL, route, broker, http.DefaultClient, st.Logger, true)
 	go client2.Connect()
 	go broker.Run()
 

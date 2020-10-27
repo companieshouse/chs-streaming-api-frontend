@@ -29,7 +29,7 @@ type mockLogger struct {
 func TestNewClient(t *testing.T) {
 	Convey("when a new client instance is created", t, func() {
 
-		actual := NewClient("baseurl", "/path", &broker.CacheBroker{}, &http.Client{}, &mockLogger{})
+		actual := NewClient("baseurl", "/path", &broker.CacheBroker{}, &http.Client{}, &mockLogger{}, true)
 
 		Convey("then a new client should be created", func() {
 			So(actual, ShouldNotBeNil)
@@ -37,6 +37,7 @@ func TestNewClient(t *testing.T) {
 			So(actual.path, ShouldEqual, "/path")
 			So(actual.broker, ShouldResemble, &broker.CacheBroker{})
 			So(actual.httpClient, ShouldResemble, &http.Client{})
+			So(actual.panicOnError, ShouldBeTrue)
 		})
 	})
 }
@@ -56,7 +57,7 @@ func TestPublishToBroker(t *testing.T) {
 		logger := &mockLogger{}
 		logger.On("Error", mock.Anything).Return(nil)
 
-		client := NewClient("baseurl", "/path", publisher, getter, logger)
+		client := NewClient("baseurl", "/path", publisher, getter, logger, true)
 		client.wg = new(sync.WaitGroup)
 
 		Convey("when a new message is published from cache broker", func() {
@@ -83,7 +84,7 @@ func TestDisconnectWhenFinishInvoked(t *testing.T) {
 		logger := &mockLogger{}
 		logger.On("Error", mock.Anything).Return(nil)
 
-		client := NewClient("baseurl", "/path", publisher, getter, logger)
+		client := NewClient("baseurl", "/path", publisher, getter, logger, true)
 		go client.Connect()
 		Convey("When the close method is invoked", func() {
 			client.Close()

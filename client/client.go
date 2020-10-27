@@ -10,16 +10,17 @@ import (
 )
 
 type Client struct {
-	baseurl    string
-	path       string
-	broker     Publishable
-	httpClient Gettable
-	wg         *sync.WaitGroup
-	logger     logger.Logger
-	Offset     string
-	closed     bool
-	closing    chan bool
-	finished   chan bool
+	baseurl      string
+	path         string
+	broker       Publishable
+	httpClient   Gettable
+	wg           *sync.WaitGroup
+	logger       logger.Logger
+	Offset       string
+	closed       bool
+	closing      chan bool
+	finished     chan bool
+	panicOnError bool
 }
 
 type Publishable interface {
@@ -38,16 +39,17 @@ type Result struct {
 	Offset int64  `json:"offset"`
 }
 
-func NewClient(baseurl string, path string, broker Publishable, client Gettable, logger logger.Logger) *Client {
+func NewClient(baseurl string, path string, broker Publishable, client Gettable, logger logger.Logger, panicOnError bool) *Client {
 	return &Client{
-		baseurl:    baseurl,
-		path:       path,
-		broker:     broker,
-		httpClient: client,
-		wg:         nil,
-		logger:     logger,
-		closing:    make(chan bool),
-		finished:   make(chan bool),
+		baseurl:      baseurl,
+		path:         path,
+		broker:       broker,
+		httpClient:   client,
+		wg:           nil,
+		logger:       logger,
+		closing:      make(chan bool),
+		finished:     make(chan bool),
+		panicOnError: panicOnError,
 	}
 }
 
@@ -60,11 +62,19 @@ func (c *Client) Connect() {
 
 	if err != nil {
 		c.logger.Error(err, log.Data{})
-		panic(err)
+		if c.panicOnError {
+			panic(err)
+		} else {
+			return
+		}
 	}
 	if resp.StatusCode != http.StatusOK {
 		c.logger.Info("Unable to connect to cache broker from endpoint", log.Data{"endpoint": c.baseurl, "Http Status": resp.StatusCode})
-		panic("Unable to connect to cache broker from endpoint")
+		if c.panicOnError {
+			panic("Unable to connect to cache broker from endpoint")
+		} else {
+			return
+		}
 	}
 
 	body := resp.Body
