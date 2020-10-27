@@ -2,11 +2,9 @@ package client
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	"github.com/companieshouse/chs.go/log"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 )
@@ -19,6 +17,9 @@ type Client struct {
 	wg         *sync.WaitGroup
 	logger     logger.Logger
 	Offset     string
+	closed     bool
+	closing    chan bool
+	finished   chan bool
 }
 
 type Publishable interface {
@@ -45,6 +46,8 @@ func NewClient(baseurl string, path string, broker Publishable, client Gettable,
 		httpClient: client,
 		wg:         nil,
 		logger:     logger,
+		closing:    make(chan bool),
+		finished:   make(chan bool),
 	}
 }
 
@@ -67,6 +70,13 @@ func (c *Client) Connect() {
 	body := resp.Body
 	reader := bufio.NewReader(body)
 	go c.loop(reader)
+	<-c.closing
+	err = body.Close()
+	if err != nil {
+		c.logger.Error(err)
+	}
+	c.closed = true
+	c.finished <- true
 }
 
 func (c *Client) SetOffset(offset string) {
@@ -78,9 +88,8 @@ func (c *Client) loop(reader *bufio.Reader) {
 	for {
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
-			c.logger.Error(err, log.Data{})
-			fmt.Fprintf(os.Stderr, "error during resp.Body read:%s\n", err)
-			continue
+			c.logger.Error(err)
+			return
 		}
 
 		c.broker.Publish(string(line))
@@ -90,4 +99,9 @@ func (c *Client) loop(reader *bufio.Reader) {
 		time.Sleep(600)
 	}
 
+}
+
+func (c *Client) Close() {
+	c.closing <- true
+	<-c.finished
 }

@@ -41,6 +41,7 @@ type TimestampGeneratable interface {
 type Connectable interface {
 	Connect()
 	SetOffset(offset string)
+	Close()
 }
 
 type ClientGettable interface {
@@ -112,8 +113,10 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 	heartbeatTimer := st.TimerFactory.GetTimer(st.HeartbeatInterval)
 	requestTimer := st.TimerFactory.GetTimer(st.RequestTimeout)
 
+	var client2 Connectable
+
 	if route != "" {
-		client2 := st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
+		client2 = st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
 		client2.SetOffset(request.URL.Query().Get("timepoint"))
 		go client2.Connect()
 	}
@@ -123,6 +126,9 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 	for {
 		select {
 		case <-requestTimer.C:
+			if client2 != nil {
+				client2.Close()
+			}
 			_ = broker.Unsubscribe(subscription)
 			log.InfoR(request, "connection expired, disconnecting client ")
 			if st.wg != nil {
@@ -130,6 +136,9 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 			}
 			return
 		case <-request.Context().Done():
+			if client2 != nil {
+				client2.Close()
+			}
 			_ = broker.Unsubscribe(subscription)
 			st.Logger.InfoR(request, "User disconnected")
 			if st.wg != nil {
