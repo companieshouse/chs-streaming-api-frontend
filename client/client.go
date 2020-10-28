@@ -2,11 +2,8 @@ package client
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/companieshouse/chs-streaming-api-frontend/logger"
-	"github.com/companieshouse/chs.go/log"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 )
@@ -18,10 +15,22 @@ type Client struct {
 	httpClient Gettable
 	wg         *sync.WaitGroup
 	logger     logger.Logger
+	Offset     string
+	closed     bool
+	closing    chan bool
+	finished   chan bool
+	status     chan *ResponseStatus
+}
+
+type ResponseStatus struct {
+	Code int
+	Err  error
 }
 
 type Publishable interface {
 	Publish(msg string)
+	Subscribe() (chan string, error)
+	Unsubscribe(subscription chan string) error
 }
 
 type Gettable interface {
@@ -36,47 +45,76 @@ type Result struct {
 
 func NewClient(baseurl string, path string, broker Publishable, client Gettable, logger logger.Logger) *Client {
 	return &Client{
-		baseurl,
-		path,
-		broker,
-		client,
-		nil,
-		logger,
+		baseurl:    baseurl,
+		path:       path,
+		broker:     broker,
+		httpClient: client,
+		wg:         nil,
+		logger:     logger,
+		closing:    make(chan bool),
+		finished:   make(chan bool),
+		status:     make(chan *ResponseStatus),
 	}
 }
 
-func (c *Client) Connect() {
-	resp, err := c.httpClient.Get(c.baseurl + c.path)
+func (c *Client) Connect() *ResponseStatus {
+	go c.execute()
+	return <-c.status
+}
+
+func (c *Client) SetOffset(offset string) {
+	c.Offset = offset
+}
+
+func (c *Client) Close() {
+	c.closing <- true
+	<-c.finished
+}
+
+func (c *Client) execute() {
+	url := c.baseurl + c.path
+	if c.Offset != "" {
+		url += "?timepoint=" + c.Offset
+	}
+
+	resp, err := c.httpClient.Get(url)
 
 	if err != nil {
-		c.logger.Error(err, log.Data{})
-		panic(err)
+		c.closed = true
+		c.logger.Error(err)
+		c.status <- &ResponseStatus{Err: err}
+		return
 	}
+	c.status <- &ResponseStatus{Code: resp.StatusCode}
 	if resp.StatusCode != http.StatusOK {
-		c.logger.Info("Unable to connect to cache broker from endpoint", log.Data{"endpoint": c.baseurl, "Http Status": resp.StatusCode})
-		panic("Unable to connect to cache broker from endpoint")
+		c.closed = true
+		return
 	}
-
 	body := resp.Body
 	reader := bufio.NewReader(body)
 	go c.loop(reader)
+	<-c.closing
+	err = body.Close()
+	if err != nil {
+		c.logger.Error(err)
+	}
+	c.closed = true
+	c.finished <- true
 }
 
 func (c *Client) loop(reader *bufio.Reader) {
-
 	for {
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
-			c.logger.Error(err, log.Data{})
-			fmt.Fprintf(os.Stderr, "error during resp.Body read:%s\n", err)
-			continue
+			c.logger.Error(err)
+			return
 		}
-
-		c.broker.Publish(string(line))
-		if c.wg != nil {
-			c.wg.Done()
+		if len(line) > 0 {
+			c.broker.Publish(string(line))
+			if c.wg != nil {
+				c.wg.Done()
+			}
 		}
 		time.Sleep(600)
 	}
-
 }

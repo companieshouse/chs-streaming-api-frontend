@@ -12,9 +12,54 @@ import (
 	"time"
 )
 
-type Subscribable interface {
-	Subscribe() (chan string, error)
-	Unsubscribe(chan string) error
+type TimerFactory struct {
+	Unit time.Duration
+}
+
+type ClientFactory struct {
+}
+
+type PublisherFactory struct {
+}
+
+func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
+	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger)
+}
+
+func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
+	return time.NewTimer(duration * t.Unit)
+}
+
+func (p *PublisherFactory) GetPublisher() client.Publishable {
+	return &Publisher{data: make(chan string)}
+}
+
+func (p *PublisherFactory) GetBroker() RunnablePublisher {
+	return broker.NewBroker()
+}
+
+type TimestampGeneratable interface {
+	GetTimer(duration time.Duration) *time.Timer
+}
+
+type Connectable interface {
+	Connect() *client.ResponseStatus
+	SetOffset(offset string)
+	Close()
+}
+
+type RunnablePublisher interface {
+	client.Publishable
+	Run()
+}
+
+type ClientGettable interface {
+	GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable
+}
+
+type PublisherGettable interface {
+	GetPublisher() client.Publishable
+	GetBroker() RunnablePublisher
 }
 
 //Streaming contains necessary config for streaming
@@ -24,93 +69,104 @@ type Streaming struct {
 	wg                *sync.WaitGroup
 	Logger            logger.Logger
 	CacheBrokerURL    string
+	TimerFactory      TimestampGeneratable
+	ClientFactory     ClientGettable
+	PublisherFactory  PublisherGettable
 }
 
-/*
-  Have mini functions for handling timer events so that we can stub these in tests to verify that they are called
-*/
-func handleRequestTimeOut(contextID string) {
-	log.DebugC(contextID, "connection expired, disconnecting client ")
+type Publisher struct {
+	data chan string
 }
 
-func handleClientDisconnect(contextID string) {
-	log.DebugC(contextID, "connection closed by client")
+func (p *Publisher) Publish(msg string) {
+	p.data <- msg
 }
 
-func handleHeartbeatTimeout(contextID string) {
-	log.TraceC(contextID, "application heartbeat")
+func (p *Publisher) Subscribe() (chan string, error) {
+	return p.data, nil
 }
 
-var callResponseWriterWrite = responseWriterWrite
-
-var callRequestTimeOut = handleRequestTimeOut
-var callHeartbeatTimeout = handleHeartbeatTimeout
-var callHandleClientDisconnect = handleClientDisconnect
+func (p *Publisher) Unsubscribe(subscription chan string) error {
+	close(subscription)
+	return nil
+}
 
 // AddStream sets up the routing for the particular stream type
 func (st Streaming) AddStream(router *pat.Router, route string, streamName string) {
 
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
-	client2 := client.NewClient(st.CacheBrokerURL, route, broker, http.DefaultClient, st.Logger)
-	go client2.Connect()
+	client2 := st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
+	client2.Connect()
 	go broker.Run()
 
-	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker))
+	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker, route))
 }
 
 // Handle Request
-func (st Streaming) HandleRequest(streamName string, broker Subscribable) func(writer http.ResponseWriter, req *http.Request) {
+func (st Streaming) HandleRequest(streamName string, broker client.Publishable, route string) func(writer http.ResponseWriter, req *http.Request) {
 	return func(writer http.ResponseWriter, req *http.Request) {
-
-		st.Logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
-		st.ProcessHTTP(writer, req, broker)
+		if req.URL.Query().Get("timepoint") != "" {
+			st.Logger.InfoR(req, "consuming from cache-broker, timepoint specified", log.Data{"Stream Name": streamName})
+			st.ProcessHTTP(writer, req, route, st.PublisherFactory.GetPublisher())
+		} else {
+			st.Logger.InfoR(req, "consuming from cache-broker", log.Data{"Stream Name": streamName})
+			st.ProcessHTTP(writer, req, "", broker)
+		}
 	}
 }
 
-func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request, broker Subscribable) {
+func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request, route string, broker client.Publishable) {
+	var serviceClient Connectable
 
-	contextID := request.Header.Get("ERIC_Identity")
-	heathcheckTimer := time.NewTimer(st.HeartbeatInterval * time.Second)
-	requestTimer := time.NewTimer(st.RequestTimeout * time.Second)
+	heartbeatTimer := st.TimerFactory.GetTimer(st.HeartbeatInterval)
+	requestTimer := st.TimerFactory.GetTimer(st.RequestTimeout)
 
+	st.Logger.Info("Handling offset")
+	if route != "" {
+		serviceClient = st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
+		serviceClient.SetOffset(request.URL.Query().Get("timepoint"))
+		serviceClient.Connect()
+	}
+	st.Logger.Info("Subscribing to broker")
 	subscription, _ := broker.Subscribe()
 
 	for {
 		select {
 		case <-requestTimer.C:
-			callRequestTimeOut(contextID)
-			return
-		case <-request.Context().Done():
-			callHandleClientDisconnect(contextID)
-			return
-		case <-heathcheckTimer.C:
-			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
-
-			writer.(http.Flusher).Flush()
-			callHeartbeatTimeout(contextID)
-
-			heathcheckTimer.Reset(st.HeartbeatInterval * time.Second)
-			writer.(http.Flusher).Flush()
-		case msg := <-subscription:
-			st.Logger.InfoR(request, "User connected")
-			_, _ = writer.Write([]byte(msg))
-			writer.(http.Flusher).Flush()
+			if serviceClient != nil {
+				serviceClient.Close()
+			}
+			_ = broker.Unsubscribe(subscription)
+			log.InfoR(request, "connection expired, disconnecting client ")
 			if st.wg != nil {
 				st.wg.Done()
 			}
+			return
 		case <-request.Context().Done():
+			if serviceClient != nil {
+				serviceClient.Close()
+			}
 			_ = broker.Unsubscribe(subscription)
 			st.Logger.InfoR(request, "User disconnected")
 			if st.wg != nil {
 				st.wg.Done()
 			}
 			return
+		case <-heartbeatTimer.C:
+			heartbeatTimer.Reset(st.HeartbeatInterval * time.Second)
+			_, _ = writer.Write([]byte("\n"))
+			writer.(http.Flusher).Flush()
+			st.Logger.InfoR(request, "Application heartbeat")
+			if st.wg != nil {
+				st.wg.Done()
+			}
+		case msg := <-subscription:
+			_, _ = writer.Write([]byte(msg))
+			writer.(http.Flusher).Flush()
+			if st.wg != nil {
+				st.wg.Done()
+			}
 		}
-
 	}
-}
-
-func responseWriterWrite(writer http.ResponseWriter, b []byte) (int, error) {
-	return writer.Write(b)
 }
