@@ -32,10 +32,40 @@ format the code
 If test failing to run
     export GO111MODULE="on"
 
-# Dockerise build and deployment of service
+# Docker build
 
-Refer PR - https://github.com/companieshouse/docker-chs-development/pull/59
+- Reconfigure your AWS account to use eu-west-1 by running 
 
+        "aws configure"
+   This is to making sure you accept default values for access key and secret key
+
+- Login to ECR using your AWS account by running 
+
+        docker login -u AWS -p "$(aws ecr get-login-password)" https://169942020521.dkr.ecr.eu-west-1.amazonaws.com
+        
+        
+  NOTE- This is the container registry. 
+        This speeds up with fetching services images rather than cloning and building the services at the local workstation.
+
+- Build the project by running
+
+
+     docker run <IMAGE_ID>
+        
+     IMAGE_ID is 169942020521.dkr.ecr.eu-west-1.amazonaws.com/local/chs-streaming-api-frontend:latest
+
+
+
+- Send a GET request using your HTTP client to /filings.
+  A connection should be established and ready to receive the messaage from backend and cache service
+
+        $ curl -v http://stream.chs.local/filings
+        
+        $ curl -v http://stream.chs.local/filings?timepoint=1
+
+Note - Other than Environment variables, ensure that value, in chs-config, have been specified for the 
+       KAFKA_STREAMING_BROKER_ADDR as kafka2.broker:29095
+       This is needed as kafka streaming is running on port 29095
 
 # Environment Variables
 
