@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/companieshouse/chs-streaming-api-frontend/broker"
 	"github.com/companieshouse/chs-streaming-api-frontend/client"
+	"github.com/companieshouse/chs-streaming-api-frontend/factory"
 	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	"github.com/companieshouse/chs.go/log"
 
@@ -12,56 +13,6 @@ import (
 	"time"
 )
 
-type TimerFactory struct {
-	Unit time.Duration
-}
-
-type ClientFactory struct {
-}
-
-type PublisherFactory struct {
-}
-
-func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
-	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger)
-}
-
-func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
-	return time.NewTimer(duration * t.Unit)
-}
-
-func (p *PublisherFactory) GetPublisher() client.Publishable {
-	return &Publisher{data: make(chan string)}
-}
-
-func (p *PublisherFactory) GetBroker() RunnablePublisher {
-	return broker.NewBroker()
-}
-
-type TimestampGeneratable interface {
-	GetTimer(duration time.Duration) *time.Timer
-}
-
-type Connectable interface {
-	Connect() *client.ResponseStatus
-	SetOffset(offset string)
-	Close()
-}
-
-type RunnablePublisher interface {
-	client.Publishable
-	Run()
-}
-
-type ClientGettable interface {
-	GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable
-}
-
-type PublisherGettable interface {
-	GetPublisher() client.Publishable
-	GetBroker() RunnablePublisher
-}
-
 //Streaming contains necessary config for streaming
 type Streaming struct {
 	RequestTimeout    time.Duration
@@ -69,26 +20,9 @@ type Streaming struct {
 	wg                *sync.WaitGroup
 	Logger            logger.Logger
 	CacheBrokerURL    string
-	TimerFactory      TimestampGeneratable
-	ClientFactory     ClientGettable
-	PublisherFactory  PublisherGettable
-}
-
-type Publisher struct {
-	data chan string
-}
-
-func (p *Publisher) Publish(msg string) {
-	p.data <- msg
-}
-
-func (p *Publisher) Subscribe() (chan string, error) {
-	return p.data, nil
-}
-
-func (p *Publisher) Unsubscribe(subscription chan string) error {
-	close(subscription)
-	return nil
+	TimerFactory      factory.TimestampGeneratable
+	ClientFactory     factory.ClientGettable
+	PublisherFactory  factory.PublisherGettable
 }
 
 // AddStream sets up the routing for the particular stream type
@@ -117,7 +51,7 @@ func (st Streaming) HandleRequest(streamName string, broker client.Publishable, 
 }
 
 func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request, route string, broker client.Publishable) {
-	var serviceClient Connectable
+	var serviceClient factory.Connectable
 
 	heartbeatTimer := st.TimerFactory.GetTimer(st.HeartbeatInterval)
 	requestTimer := st.TimerFactory.GetTimer(st.RequestTimeout)

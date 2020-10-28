@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/companieshouse/chs-streaming-api-frontend/client"
+	"github.com/companieshouse/chs-streaming-api-frontend/factory"
 	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
@@ -136,7 +137,7 @@ func TestUnsubscribeFromBrokerIfConnectionExpired(t *testing.T) {
 		cacheBrokerMock.On("Unsubscribe", subscription).Return(nil)
 
 		timerFactory := &mockTimerFactory{}
-		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(3))
+		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(0))
 		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(math.MaxInt64))
 
 		req := httptest.NewRequest("GET", "/filings", nil)
@@ -177,7 +178,7 @@ func TestSendNewlineIfHeartbeat(t *testing.T) {
 
 		timerFactory := &mockTimerFactory{}
 		timerFactory.On("GetTimer", time.Duration(3)).Return(time.NewTimer(math.MaxInt64))
-		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(100))
+		timerFactory.On("GetTimer", time.Duration(1)).Return(time.NewTimer(0))
 
 		req := httptest.NewRequest("GET", "/filings", nil)
 
@@ -433,8 +434,8 @@ func (b *mockBroker) Publish(msg string) {
 	b.Called(msg)
 }
 
-func (c *mockClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
-	return c.Called(baseurl, path, publisher, logger).Get(0).(Connectable)
+func (c *mockClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) factory.Connectable {
+	return c.Called(baseurl, path, publisher, logger).Get(0).(factory.Connectable)
 }
 
 func (c *mockClient) Connect() *client.ResponseStatus {

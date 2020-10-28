@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/companieshouse/chs-streaming-api-frontend/config"
+	"github.com/companieshouse/chs-streaming-api-frontend/factory"
 	"github.com/companieshouse/chs-streaming-api-frontend/handlers"
 	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	"time"
@@ -53,9 +54,9 @@ func main() {
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
 		Logger:            logger.NewLogger(),
 		CacheBrokerURL:    cfg.CacheBrokerURL,
-		TimerFactory:      &handlers.TimerFactory{Unit: time.Second},
-		ClientFactory:     &handlers.ClientFactory{},
-		PublisherFactory:  &handlers.PublisherFactory{},
+		TimerFactory:      &factory.TimerFactory{Unit: time.Second},
+		ClientFactory:     &factory.ClientFactory{},
+		PublisherFactory:  &factory.PublisherFactory{},
 	}
 
 	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream)

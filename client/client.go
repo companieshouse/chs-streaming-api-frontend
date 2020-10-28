@@ -109,11 +109,11 @@ func (c *Client) loop(reader *bufio.Reader) {
 			c.logger.Error(err)
 			return
 		}
-		if len(line) > 0 {
+		if len(line) > 1 {
 			c.broker.Publish(string(line))
-			if c.wg != nil {
-				c.wg.Done()
-			}
+		}
+		if c.wg != nil {
+			c.wg.Done()
 		}
 		time.Sleep(600)
 	}
