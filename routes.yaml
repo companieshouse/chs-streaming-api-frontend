@@ -1,0 +1,10 @@
+app_name: chs-streaming-api-frontend
+group: streampath
+weight: 200
+routes:
+   1: ^/filings
+   2: ^/companies
+   3: ^/insolvency-cases
+   4: ^/charges
+   5: ^/officers
+   6: ^/persons-with-significant-control
