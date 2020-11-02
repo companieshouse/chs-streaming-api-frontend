@@ -27,7 +27,4 @@ else
     source "${APP_DIR}/app_env"
 fi
 
-# Ensure we only populate the broker address via application arguments
-unset KAFKA_STREAMING_BROKER_ADDR
-
-exec "${APP_DIR}/chs-streaming-api-frontend" "-bind-address=:${PORT}" $(for broker in "${BROKERS[@]}"; do echo -n "-cache-broker-url=${broker} "; done)
+exec "${APP_DIR}/chs-streaming-api-frontend" "-bind-address=:${PORT}"
