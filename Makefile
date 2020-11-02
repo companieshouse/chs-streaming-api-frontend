@@ -64,7 +64,6 @@ xunit-tests:
 	@set -a; go test -v $(TESTS) -run 'Unit' | go2xunit -output $(xunit_output)
 
 .PHONY: lint
-lint: GO111MODULE=off
 lint:
 	go get github.com/golang/lint/golint
 	golint ./... > $(lint_output)
