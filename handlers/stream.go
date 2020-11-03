@@ -27,7 +27,6 @@ type Streaming struct {
 
 // AddStream sets up the routing for the particular stream type
 func (st Streaming) AddStream(router *pat.Router, route string, streamName string) {
-
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
 	client2 := st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
@@ -53,8 +52,8 @@ func (st Streaming) HandleRequest(streamName string, broker client.Publishable, 
 func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Request, route string, broker client.Publishable) {
 	var serviceClient factory.Connectable
 
-	heartbeatTimer := st.TimerFactory.GetTimer(st.HeartbeatInterval)
-	requestTimer := st.TimerFactory.GetTimer(st.RequestTimeout)
+	requestTimer := st.TimerFactory.GetTimer(st.RequestTimeout * time.Second)
+	heartbeatTimer := st.TimerFactory.GetTimer(st.HeartbeatInterval * time.Second)
 
 	st.Logger.Info("Handling offset")
 	if route != "" {
@@ -65,9 +64,14 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 	st.Logger.Info("Subscribing to broker")
 	subscription, _ := broker.Subscribe()
 
+	requestTimer.Start()
+	heartbeatTimer.Start()
+
 	for {
 		select {
-		case <-requestTimer.C:
+		case <-requestTimer.Elapsed():
+			requestTimer.Stop()
+			heartbeatTimer.Stop()
 			if serviceClient != nil {
 				serviceClient.Close()
 			}
@@ -78,6 +82,8 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 			}
 			return
 		case <-request.Context().Done():
+			requestTimer.Stop()
+			heartbeatTimer.Stop()
 			if serviceClient != nil {
 				serviceClient.Close()
 			}
@@ -87,8 +93,8 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 				st.wg.Done()
 			}
 			return
-		case <-heartbeatTimer.C:
-			heartbeatTimer.Reset(st.HeartbeatInterval * time.Second)
+		case <-heartbeatTimer.Elapsed():
+			heartbeatTimer.Reset()
 			_, _ = writer.Write([]byte("\n"))
 			writer.(http.Flusher).Flush()
 			st.Logger.InfoR(request, "Application heartbeat")

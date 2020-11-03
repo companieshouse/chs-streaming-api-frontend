@@ -28,7 +28,56 @@ func TestGetTimerReturnsNewTimerInstance(t *testing.T) {
 		Convey("When a new timer client instance is obtained", func() {
 			actual := factory.GetTimer(0)
 			Convey("Then a timer with a timeout of duration * time unit should be created", func() {
-				So(<-actual.C, ShouldNotBeNil)
+				So(actual, ShouldNotBeNil)
+			})
+		})
+	})
+}
+
+func TestStartInterval(t *testing.T) {
+	Convey("When a new timer instance is started", t, func() {
+		timer := &Interval{
+			notifications: make(chan bool),
+			pulse:         make(chan bool),
+			interval:      1 * time.Second,
+		}
+		timer.Start()
+		Convey("Then a message should be sent", func() {
+			So(<-timer.Elapsed(), ShouldBeTrue)
+		})
+	})
+}
+
+func TestStopInterval(t *testing.T) {
+	Convey("Given a new timer instance has been started", t, func() {
+		timer := &Interval{
+			notifications: make(chan bool),
+			pulse:         make(chan bool),
+			interval:      1 * time.Second,
+		}
+		timer.Start()
+		Convey("When the timer is stopped", func() {
+			timer.Stop()
+			Convey("Then the started field should be false", func() {
+				So(timer.started, ShouldBeFalse)
+			})
+		})
+	})
+}
+
+func TestResetInterval(t *testing.T) {
+	Convey("Given a new timer instance has been started", t, func() {
+		timer := &Interval{
+			notifications: make(chan bool),
+			pulse:         make(chan bool),
+			interval:      1 * time.Second,
+		}
+		timer.Start()
+		<-timer.Elapsed()
+		Convey("When the timer is reset", func() {
+			timer.Reset()
+			Convey("Then a further pulse should be sent", func() {
+				So(<-timer.Elapsed(), ShouldBeTrue)
 			})
 		})
 	})

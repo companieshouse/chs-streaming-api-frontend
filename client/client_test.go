@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"github.com/companieshouse/chs-streaming-api-frontend/broker"
+	"github.com/companieshouse/chs-streaming-api-frontend/mocking"
 	"github.com/companieshouse/chs.go/log"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
@@ -23,14 +24,10 @@ type mockBody struct {
 	data string
 }
 
-type mockLogger struct {
-	mock.Mock
-}
-
 func TestNewClient(t *testing.T) {
 	Convey("when a new client instance is created", t, func() {
 
-		actual := NewClient("baseurl", "/path", &broker.CacheBroker{}, &http.Client{}, &mockLogger{})
+		actual := NewClient("baseurl", "/path", &broker.CacheBroker{}, &http.Client{}, &mocking.MockLogger{})
 
 		Convey("then a new client should be created", func() {
 			So(actual, ShouldNotBeNil)
@@ -54,7 +51,7 @@ func TestPublishToBroker(t *testing.T) {
 			Body: body,
 		}, nil)
 
-		logger := &mockLogger{}
+		logger := &mocking.MockLogger{}
 		logger.On("Error", mock.Anything).Return(nil)
 
 		client := NewClient("baseurl", "/path", publisher, getter, logger)
@@ -86,7 +83,7 @@ func TestSkipPublishingToBrokerIfZeroLengthMessage(t *testing.T) {
 			Body: body,
 		}, nil)
 
-		logger := &mockLogger{}
+		logger := &mocking.MockLogger{}
 		logger.On("Error", mock.Anything).Return(nil)
 
 		client := NewClient("baseurl", "/path", publisher, getter, logger)
@@ -116,7 +113,7 @@ func TestDisconnectWhenFinishInvoked(t *testing.T) {
 			Body: &mockBody{},
 		}, nil)
 
-		logger := &mockLogger{}
+		logger := &mocking.MockLogger{}
 		logger.On("Error", mock.Anything).Return(nil)
 
 		client := NewClient("baseurl", "/path", publisher, getter, logger)
@@ -144,7 +141,7 @@ func TestReturnNon200ResponseCode(t *testing.T) {
 			Body: &mockBody{},
 		}, nil)
 
-		logger := &mockLogger{}
+		logger := &mocking.MockLogger{}
 		logger.On("Error", mock.Anything).Return()
 		logger.On("Info", mock.Anything, mock.Anything).Return()
 
@@ -171,7 +168,7 @@ func TestReturnConnectionError(t *testing.T) {
 		getter := &mockHttpClient{}
 		getter.On("Get", mock.Anything).Return(&http.Response{}, expectedError)
 
-		logger := &mockLogger{}
+		logger := &mocking.MockLogger{}
 		logger.On("Error", mock.Anything, mock.Anything).Return()
 		logger.On("Info", mock.Anything, mock.Anything).Return()
 
@@ -202,7 +199,7 @@ func TestCallCacheServiceWithProvidedOffsetIfSetOffsetInvoked(t *testing.T) {
 			Body: body,
 		}, nil)
 
-		logger := &mockLogger{}
+		logger := &mocking.MockLogger{}
 		logger.On("Error", mock.Anything).Return(nil)
 
 		client := NewClient("baseurl", "/path", publisher, getter, logger)
@@ -251,16 +248,4 @@ func (b *mockBody) Read(p []byte) (n int, err error) {
 
 func (b *mockBody) Close() error {
 	return nil
-}
-
-func (l *mockLogger) Error(err error, data ...log.Data) {
-	l.Called(err, data)
-}
-
-func (l *mockLogger) Info(msg string, data ...log.Data) {
-	l.Called(msg, data)
-}
-
-func (l *mockLogger) InfoR(req *http.Request, message string, data ...log.Data) {
-	l.Called(req, message, data)
 }

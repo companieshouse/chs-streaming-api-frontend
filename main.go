@@ -54,9 +54,9 @@ func main() {
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
 		Logger:            logger.NewLogger(),
 		CacheBrokerURL:    cfg.CacheBrokerURL,
-		TimerFactory:      &factory.TimerFactory{Unit: time.Second},
 		ClientFactory:     &factory.ClientFactory{},
 		PublisherFactory:  &factory.PublisherFactory{},
+		TimerFactory:      &factory.TimerFactory{},
 	}
 
 	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream)

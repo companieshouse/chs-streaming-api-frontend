@@ -10,7 +10,7 @@ import (
 )
 
 type TimestampGeneratable interface {
-	GetTimer(duration time.Duration) *time.Timer
+	GetTimer(duration time.Duration) Elapseable
 }
 
 type Connectable interface {
@@ -33,6 +33,57 @@ type PublisherGettable interface {
 	GetBroker() RunnablePublisher
 }
 
+type Elapseable interface {
+	Start()
+	Elapsed() <-chan bool
+	Reset()
+	Stop()
+}
+
+type Interval struct {
+	started       bool
+	notifications chan bool
+	pulse         chan bool
+	interval      time.Duration
+}
+
+func (i *Interval) Start() {
+	go func() {
+		t := time.NewTimer(0)
+		<-t.C
+		for <-i.pulse {
+			t.Reset(i.interval)
+			<-t.C
+			select {
+			case i.notifications <- true:
+			default:
+			}
+		}
+		t.Stop()
+	}()
+	i.started = true
+	i.pulse <- true
+}
+
+func (i *Interval) Elapsed() <-chan bool {
+	return i.notifications
+}
+
+func (i *Interval) Reset() {
+	select {
+	case i.pulse <- true:
+	default:
+	}
+}
+
+func (i *Interval) Stop() {
+	select {
+	case i.pulse <- false:
+	default:
+	}
+	i.started = false
+}
+
 type TimerFactory struct {
 	Unit time.Duration
 }
@@ -51,8 +102,12 @@ func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.
 	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger)
 }
 
-func (t *TimerFactory) GetTimer(duration time.Duration) *time.Timer {
-	return time.NewTimer(duration * t.Unit)
+func (t *TimerFactory) GetTimer(duration time.Duration) Elapseable {
+	return &Interval{
+		interval:      duration,
+		notifications: make(chan bool),
+		pulse:         make(chan bool),
+	}
 }
 
 func (p *PublisherFactory) GetPublisher() client.Publishable {
