@@ -5,7 +5,6 @@ go 1.12
 require (
 	github.com/companieshouse/chs.go v1.1.10
 	github.com/companieshouse/gofigure v0.1.4
-	github.com/golang/mock v1.4.4
 	github.com/gorilla/pat v1.0.1
 	github.com/justinas/alice v1.2.0
 	github.com/kr/text v0.2.0 // indirect
