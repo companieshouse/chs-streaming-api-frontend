@@ -31,7 +31,7 @@ type ServiceConfig struct {
 
 // BindAddr implements service.Config.BindAddr.
 func (cfg ServiceConfig) BindAddr() string {
-	return cfg.Config.BindAddr
+	return cfg.Config.BindAddress
 }
 
 // CertFile implements service.Config.CertFile.
@@ -63,7 +63,6 @@ func Get() (*Config, error) {
 	}
 
 	cfg = &Config{
-		BindAddr:          ":3124",
 		CertFile:          "",
 		KeyFile:           "",
 		EricURL:           "",

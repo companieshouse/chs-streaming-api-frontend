@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/companieshouse/chs-streaming-api-frontend/broker"
 	"github.com/companieshouse/chs-streaming-api-frontend/config"
 	"github.com/companieshouse/chs-streaming-api-frontend/handlers"
+	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 	"time"
 
 	"github.com/companieshouse/chs.go/log"
@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	cacheBroker             = "cache-broker"
 	filingHistoryStream     = "stream-filing-history"
 	companyProfileStream    = "stream-company-profile"
 	companyInsolvencyStream = "stream-company-insolvency"
@@ -48,15 +47,15 @@ func main() {
 	//service healthcheck
 	svc.Router().Path("/healthcheck").Methods("GET").HandlerFunc(handlers.HealthCheck)
 
-	//connect to cache-broker
-	log.Info("Getting cache-broker", log.Data{"cache-broker": cacheBroker})
-	publisher := broker.NewBroker() //incoming messages
-
 	//Streaming Request Handler
 	streamHandler := handlers.Streaming{
 		RequestTimeout:    time.Duration(cfg.RequestTimeout),
 		HeartbeatInterval: time.Duration(cfg.HeartbeatInterval),
-		Broker:            publisher,
+		Logger:            logger.NewLogger(),
+		CacheBrokerURL:    cfg.CacheBrokerURL,
+		TimerFactory:      &handlers.TimerFactory{Unit: time.Second},
+		ClientFactory:     &handlers.ClientFactory{},
+		PublisherFactory:  &handlers.PublisherFactory{},
 	}
 
 	//Get stream enabled flag values from config
