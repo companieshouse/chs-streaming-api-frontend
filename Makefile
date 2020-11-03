@@ -23,15 +23,11 @@ build: fmt
 	go build
 
 .PHONY: test
-test: test-unit test-integration
+test: test-unit
 
 .PHONY: test-unit
 test-unit:
-	go test $(TESTS) -run 'Unit' -coverprofile=coverage.out
-
-.PHONY: test-integration
-test-integration:
-	$(source_env); go test $(TESTS) -run 'Integration'
+	go test $(TESTS) -coverprofile=coverage.out
 
 .PHONY: convey
 convey: clean build
