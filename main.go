@@ -58,12 +58,21 @@ func main() {
 		PublisherFactory:  &handlers.PublisherFactory{},
 	}
 
+	//Get stream enabled flag values from config
+	isOfficersEnabled := cfg.OfficersEndpointFlag
+	isPSCsEnabled := cfg.PSCsEndpointFlag
+
 	streamHandler.AddStream(svc.Router(), "/filings", filingHistoryStream)
 	streamHandler.AddStream(svc.Router(), "/companies", companyProfileStream)
 	streamHandler.AddStream(svc.Router(), "/insolvency-cases", companyInsolvencyStream)
 	streamHandler.AddStream(svc.Router(), "/charges", companyChargesStream)
-	streamHandler.AddStream(svc.Router(), "/officers", companyOfficersStream)
-	streamHandler.AddStream(svc.Router(), "/persons-with-significant-control", companyPSCStream)
+
+	if isOfficersEnabled {
+		streamHandler.AddStream(svc.Router(), "/officers", companyOfficersStream)
+	}
+	if isPSCsEnabled {
+		streamHandler.AddStream(svc.Router(), "/persons-with-significant-control", companyPSCStream)
+	}
 
 	svc.Start()
 }
