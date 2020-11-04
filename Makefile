@@ -48,7 +48,7 @@ endif
 	cp ./$(bin) $(tmpdir)/$(bin)
 	cp ./start.sh $(tmpdir)/start.sh
 	cp ./routes.yaml $(tmpdir)
-	cd $(tmpdir) && zip -r ../$(bin)-$(version).zip $(bin) start.sh
+	cd $(tmpdir) && zip -r ../$(bin)-$(version).zip $(bin) start.sh routes.yaml
 	rm -rf $(tmpdir)
 
 .PHONY: dist
