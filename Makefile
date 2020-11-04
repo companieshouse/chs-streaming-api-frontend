@@ -47,6 +47,7 @@ endif
 	$(eval tmpdir:=$(shell mktemp -d build-XXXXXXXXXX))
 	cp ./$(bin) $(tmpdir)/$(bin)
 	cp ./start.sh $(tmpdir)/start.sh
+	cp ./routes.yaml $(tmpdir)
 	cd $(tmpdir) && zip -r ../$(bin)-$(version).zip $(bin) start.sh
 	rm -rf $(tmpdir)
 
