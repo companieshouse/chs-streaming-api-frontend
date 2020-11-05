@@ -11,8 +11,9 @@ import (
 type Client struct {
 	baseurl    string
 	path       string
+	token      string
 	broker     Publishable
-	httpClient Gettable
+	httpClient Fetchable
 	wg         *sync.WaitGroup
 	logger     logger.Logger
 	Offset     string
@@ -33,8 +34,8 @@ type Publishable interface {
 	Unsubscribe(subscription chan string) error
 }
 
-type Gettable interface {
-	Get(url string) (resp *http.Response, err error)
+type Fetchable interface {
+	Do(req *http.Request) (resp *http.Response, err error)
 }
 
 //The result of the operation.
@@ -43,10 +44,11 @@ type Result struct {
 	Offset int64  `json:"offset"`
 }
 
-func NewClient(baseurl string, path string, broker Publishable, client Gettable, logger logger.Logger) *Client {
+func NewClient(baseurl string, path string, token string, broker Publishable, client Fetchable, logger logger.Logger) *Client {
 	return &Client{
 		baseurl:    baseurl,
 		path:       path,
+		token:      token,
 		broker:     broker,
 		httpClient: client,
 		wg:         nil,
@@ -77,7 +79,10 @@ func (c *Client) execute() {
 		url += "?timepoint=" + c.Offset
 	}
 
-	resp, err := c.httpClient.Get(url)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.SetBasicAuth(c.token, "")
+
+	resp, err := c.httpClient.Do(req)
 
 	if err != nil {
 		c.closed = true

@@ -25,7 +25,7 @@ type RunnablePublisher interface {
 }
 
 type ClientGettable interface {
-	GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable
+	GetClient(baseurl string, path string, token string, publisher client.Publishable, logger logger.Logger) Connectable
 }
 
 type PublisherGettable interface {
@@ -98,8 +98,8 @@ type Publisher struct {
 	data chan string
 }
 
-func (c *ClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) Connectable {
-	return client.NewClient(baseurl, path, publisher, http.DefaultClient, logger)
+func (c *ClientFactory) GetClient(baseurl string, path string, token string, publisher client.Publishable, logger logger.Logger) Connectable {
+	return client.NewClient(baseurl, path, token, publisher, http.DefaultClient, logger)
 }
 
 func (t *TimerFactory) GetTimer(duration time.Duration) Elapseable {

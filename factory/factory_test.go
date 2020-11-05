@@ -14,7 +14,7 @@ func TestGetClientReturnsNewClientInstance(t *testing.T) {
 		publisher := &Publisher{}
 		loggerInstance := &logger.LoggerImpl{}
 		Convey("When a new client instance is obtained", func() {
-			actual := factory.GetClient("baseurl", "/path", publisher, loggerInstance)
+			actual := factory.GetClient("baseurl", "/path", "token", publisher, loggerInstance)
 			Convey("Then a client instance constructed from the given params should be returned", func() {
 				So(actual, ShouldNotBeNil)
 			})

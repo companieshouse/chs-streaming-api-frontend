@@ -57,6 +57,7 @@ func main() {
 		ClientFactory:     &factory.ClientFactory{},
 		PublisherFactory:  &factory.PublisherFactory{},
 		TimerFactory:      &factory.TimerFactory{},
+		ApiKey:            cfg.ApiKey,
 	}
 
 	//Get stream enabled flag values from config
