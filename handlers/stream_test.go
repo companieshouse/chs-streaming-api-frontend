@@ -283,7 +283,7 @@ func TestOffsetSpecified(t *testing.T) {
 		serviceClient.On("SetOffset", mock.Anything).Return()
 
 		clientFactory := &mockClientFactory{}
-		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(serviceClient)
+		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(serviceClient)
 
 		requestTimer := &mockTimer{}
 		requestTimer.On("Start").Return()
@@ -311,6 +311,7 @@ func TestOffsetSpecified(t *testing.T) {
 			TimerFactory:      timerFactory,
 			Logger:            logger.NewLogger(),
 			wg:                new(sync.WaitGroup),
+			ApiKey:            "key",
 		}
 		testStream.wg.Add(1)
 
@@ -322,7 +323,7 @@ func TestOffsetSpecified(t *testing.T) {
 			Convey("Then the message should be pushed to the user", func() {
 				So(w.Code, ShouldEqual, 200)
 				So(w.Body.Bytes(), ShouldResemble, []byte("hello"))
-				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", publisher, mock.Anything), ShouldBeTrue)
+				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", "key", publisher, mock.Anything), ShouldBeTrue)
 				So(serviceClient.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
 				So(serviceClient.AssertCalled(t, "Connect"), ShouldBeTrue)
 				So(publisher.AssertCalled(t, "Subscribe"), ShouldBeTrue)
@@ -351,7 +352,7 @@ func TestCloseClientWhenUserDisconnects(t *testing.T) {
 		serviceClient.On("Close").Return()
 
 		clientFactory := &mockClientFactory{}
-		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(serviceClient)
+		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(serviceClient)
 
 		requestTimer := &mockTimer{}
 		requestTimer.On("Start").Return()
@@ -382,6 +383,7 @@ func TestCloseClientWhenUserDisconnects(t *testing.T) {
 			TimerFactory:      timerFactory,
 			Logger:            logger.NewLogger(),
 			wg:                new(sync.WaitGroup),
+			ApiKey:            "key",
 		}
 		testStream.wg.Add(1)
 
@@ -392,7 +394,7 @@ func TestCloseClientWhenUserDisconnects(t *testing.T) {
 			testStream.wg.Wait()
 			Convey("Then the user should be unsubscribed from the broker and the client should be closed", func() {
 				So(w.Code, ShouldEqual, 200)
-				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", publisher, mock.Anything), ShouldBeTrue)
+				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", "key", publisher, mock.Anything), ShouldBeTrue)
 				So(serviceClient.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
 				So(serviceClient.AssertCalled(t, "Connect"), ShouldBeTrue)
 				So(publisher.AssertCalled(t, "Subscribe"), ShouldBeTrue)
@@ -425,7 +427,7 @@ func TestCloseClientIfConnectionExpired(t *testing.T) {
 		serviceClient.On("Close").Return()
 
 		clientFactory := &mockClientFactory{}
-		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(serviceClient)
+		clientFactory.On("GetClient", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(serviceClient)
 
 		context := &mockContext{}
 		context.On("Done").Return(connectionClosed)
@@ -457,6 +459,7 @@ func TestCloseClientIfConnectionExpired(t *testing.T) {
 			TimerFactory:      timerFactory,
 			Logger:            logger.NewLogger(),
 			wg:                new(sync.WaitGroup),
+			ApiKey:            "key",
 		}
 		testStream.wg.Add(1)
 
@@ -467,7 +470,7 @@ func TestCloseClientIfConnectionExpired(t *testing.T) {
 			testStream.wg.Wait()
 			Convey("Then the user should be unsubscribed from the broker and the client should be closed", func() {
 				So(w.Code, ShouldEqual, 200)
-				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", publisher, mock.Anything), ShouldBeTrue)
+				So(clientFactory.AssertCalled(t, "GetClient", "baseurl", "/filings", "key", publisher, mock.Anything), ShouldBeTrue)
 				So(serviceClient.AssertCalled(t, "SetOffset", "1"), ShouldBeTrue)
 				So(serviceClient.AssertCalled(t, "Connect"), ShouldBeTrue)
 				So(publisher.AssertCalled(t, "Subscribe"), ShouldBeTrue)
@@ -529,8 +532,8 @@ func (b *mockBroker) Publish(msg string) {
 	b.Called(msg)
 }
 
-func (c *mockClientFactory) GetClient(baseurl string, path string, publisher client.Publishable, logger logger.Logger) factory.Connectable {
-	return c.Called(baseurl, path, publisher, logger).Get(0).(factory.Connectable)
+func (c *mockClientFactory) GetClient(baseurl string, path string, key string, publisher client.Publishable, logger logger.Logger) factory.Connectable {
+	return c.Called(baseurl, path, key, publisher, logger).Get(0).(factory.Connectable)
 }
 
 func (c *mockClient) Connect() *client.ResponseStatus {

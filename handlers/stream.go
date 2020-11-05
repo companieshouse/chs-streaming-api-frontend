@@ -23,13 +23,14 @@ type Streaming struct {
 	TimerFactory      factory.TimestampGeneratable
 	ClientFactory     factory.ClientGettable
 	PublisherFactory  factory.PublisherGettable
+	ApiKey            string
 }
 
 // AddStream sets up the routing for the particular stream type
 func (st Streaming) AddStream(router *pat.Router, backendPath string, route string, streamName string) {
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
-	client2 := st.ClientFactory.GetClient(st.CacheBrokerURL, backendPath, broker, st.Logger)
+	client2 := st.ClientFactory.GetClient(st.CacheBrokerURL, backendPath, st.ApiKey, broker, st.Logger)
 	client2.Connect()
 	go broker.Run()
 
@@ -57,7 +58,7 @@ func (st Streaming) ProcessHTTP(writer http.ResponseWriter, request *http.Reques
 
 	st.Logger.Info("Handling offset")
 	if route != "" {
-		serviceClient = st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
+		serviceClient = st.ClientFactory.GetClient(st.CacheBrokerURL, route, st.ApiKey, broker, st.Logger)
 		serviceClient.SetOffset(request.URL.Query().Get("timepoint"))
 		serviceClient.Connect()
 	}

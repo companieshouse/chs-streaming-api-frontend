@@ -17,6 +17,7 @@ type Config struct {
 	CacheBrokerURL       string      `env:"CACHE_BROKER_URL"             flag:"cache-broker-url"       flagDesc:"Cache broker url"`
 	OfficersEndpointFlag bool        `env:"OFFICERS_ENDPOINT_ENABLED"    flag:"officers-endpoint-flag" flagDesc:"Flag to enable/disable the Officers stream"`
 	PSCsEndpointFlag     bool        `env:"PSCS_ENDPOINT_ENABLED"        flag:"pscs-endpoint-flag"     flagDesc:"Flag to enable/disable the PSCs stream"`
+	ApiKey               string      `env:"CHS_API_KEY" flag:"api-key" flagDesc:"API key used to connect to cache service"`
 }
 
 // ServiceConfig returns a ServiceConfig interface for Config.
