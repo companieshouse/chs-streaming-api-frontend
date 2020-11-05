@@ -26,14 +26,14 @@ type Streaming struct {
 }
 
 // AddStream sets up the routing for the particular stream type
-func (st Streaming) AddStream(router *pat.Router, route string, streamName string) {
+func (st Streaming) AddStream(router *pat.Router, backendPath string, route string, streamName string) {
 	broker := broker.NewBroker() //incoming messages
 	//connect to cache-broker
-	client2 := st.ClientFactory.GetClient(st.CacheBrokerURL, route, broker, st.Logger)
+	client2 := st.ClientFactory.GetClient(st.CacheBrokerURL, backendPath, broker, st.Logger)
 	client2.Connect()
 	go broker.Run()
 
-	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker, route))
+	router.Path(route).Methods("GET").HandlerFunc(st.HandleRequest(streamName, broker, backendPath))
 }
 
 // Handle Request
