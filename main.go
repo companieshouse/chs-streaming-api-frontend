@@ -63,16 +63,16 @@ func main() {
 	isOfficersEnabled := cfg.OfficersEndpointFlag
 	isPSCsEnabled := cfg.PSCsEndpointFlag
 
-	streamHandler.AddStream(svc.Router(), "/streaming-api-backend/filings", "/filings", filingHistoryStream)
-	streamHandler.AddStream(svc.Router(), "/streaming-api-backend/companies", "/companies", companyProfileStream)
-	streamHandler.AddStream(svc.Router(), "/streaming-api-backend/insolvency-cases", "/insolvency-cases", companyInsolvencyStream)
-	streamHandler.AddStream(svc.Router(), "/streaming-api-backend/charges", "/charges", companyChargesStream)
+	streamHandler.AddStream(svc.Router(), "/streaming-api-cache/filings", "/filings", filingHistoryStream)
+	streamHandler.AddStream(svc.Router(), "/streaming-api-cache/companies", "/companies", companyProfileStream)
+	streamHandler.AddStream(svc.Router(), "/streaming-api-cache/insolvency-cases", "/insolvency-cases", companyInsolvencyStream)
+	streamHandler.AddStream(svc.Router(), "/streaming-api-cache/charges", "/charges", companyChargesStream)
 
 	if isOfficersEnabled {
-		streamHandler.AddStream(svc.Router(), "/streaming-api-backend/officers", "/officers", companyOfficersStream)
+		streamHandler.AddStream(svc.Router(), "/streaming-api-cache/officers", "/officers", companyOfficersStream)
 	}
 	if isPSCsEnabled {
-		streamHandler.AddStream(svc.Router(), "/streaming-api-backend/persons-with-significant-control", "/persons-with-significant-control", companyPSCStream)
+		streamHandler.AddStream(svc.Router(), "/streaming-api-cache/persons-with-significant-control", "/persons-with-significant-control", companyPSCStream)
 	}
 
 	svc.Start()
