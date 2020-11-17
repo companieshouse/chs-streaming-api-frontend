@@ -10,7 +10,6 @@ The following services and applications are required to build and/or run chs-str
 
 * AWS ECR
 * Docker
-* Redis
 * Companies House Streaming Platform Cache (chs-streaming-api-cache)
 
 You will need an HTTP client that supports server-sent events (e.g. cURL) to connect to the service and receive published offsets.
