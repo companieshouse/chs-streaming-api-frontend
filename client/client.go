@@ -38,7 +38,7 @@ type Fetchable interface {
 	Do(req *http.Request) (resp *http.Response, err error)
 }
 
-//The result of the operation.
+// The result of the operation.
 type Result struct {
 	Data   string `json:"data"`
 	Offset int64  `json:"offset"`

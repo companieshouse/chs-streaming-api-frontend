@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/companieshouse/chs-streaming-api-frontend/config"
 	"github.com/companieshouse/chs-streaming-api-frontend/factory"
 	"github.com/companieshouse/chs-streaming-api-frontend/handlers"
 	"github.com/companieshouse/chs-streaming-api-frontend/logger"
-	"time"
 
 	"github.com/companieshouse/chs.go/log"
 	"github.com/companieshouse/chs.go/service"
@@ -36,6 +37,8 @@ func main() {
 
 	log.Namespace = cfg.Namespace()
 	log.Info("initialising chs streaming api frontend service ...", log.Data{"config": cfg})
+
+	log.Info("cfg.ApiKey", log.Data{"cfg.ApiKey": cfg.ApiKey})
 
 	service.DefaultMiddleware = []alice.Constructor{requestID.Handler(20), log.Handler}
 
