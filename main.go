@@ -38,8 +38,6 @@ func main() {
 	log.Namespace = cfg.Namespace()
 	log.Info("initialising chs streaming api frontend service ...", log.Data{"config": cfg})
 
-	log.Info("cfg.ApiKey", log.Data{"cfg.ApiKey": cfg.ApiKey})
-
 	service.DefaultMiddleware = []alice.Constructor{requestID.Handler(20), log.Handler}
 
 	svc := service.New(cfg.ServiceConfig())
