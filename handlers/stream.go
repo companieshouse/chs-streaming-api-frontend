@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-//Streaming contains necessary config for streaming
+// Streaming contains necessary config for streaming
 type Streaming struct {
 	RequestTimeout    time.Duration
 	HeartbeatInterval time.Duration

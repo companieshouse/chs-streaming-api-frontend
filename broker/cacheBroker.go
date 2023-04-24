@@ -5,7 +5,7 @@ import (
 	"github.com/companieshouse/chs-streaming-api-frontend/logger"
 )
 
-//A broker to which cache broker will send messages published to all subscribed users.
+// A broker to which cache broker will send messages published to all subscribed users.
 type CacheBroker struct {
 	userSubscribed   chan *Event
 	userUnsubscribed chan *Event
@@ -14,19 +14,19 @@ type CacheBroker struct {
 	logger           logger.Logger
 }
 
-//An event that has been emitted to the given broker instance.
+// An event that has been emitted to the given broker instance.
 type Event struct {
 	stream chan string
 	result chan *Result
 }
 
-//The result of the event after it has been handled by the event handler.
+// The result of the event after it has been handled by the event handler.
 type Result struct {
 	hasErrors bool
 	msg       string
 }
 
-//Create a new broker instance.
+// Create a new broker instance.
 func NewBroker() *CacheBroker {
 	return &CacheBroker{
 		userSubscribed:   make(chan *Event),
@@ -36,7 +36,7 @@ func NewBroker() *CacheBroker {
 	}
 }
 
-//Subscribe a user to this broker.
+// Subscribe a user to this broker.
 func (b *CacheBroker) Subscribe() (chan string, error) {
 	stream := make(chan string)
 	subscription := &Event{
@@ -49,7 +49,7 @@ func (b *CacheBroker) Subscribe() (chan string, error) {
 	return stream, nil
 }
 
-//Run this broker instance.
+// Run this broker instance.
 func (b *CacheBroker) Run() {
 	for {
 		select {
@@ -75,8 +75,8 @@ func (b *CacheBroker) Run() {
 	}
 }
 
-//Unsubscribe a user from this broker.
-//If the user isn't subscribed to this broker then an error will be returned.
+// Unsubscribe a user from this broker.
+// If the user isn't subscribed to this broker then an error will be returned.
 func (b *CacheBroker) Unsubscribe(consumer chan string) error {
 	subscription := &Event{
 		stream: consumer,
@@ -91,7 +91,7 @@ func (b *CacheBroker) Unsubscribe(consumer chan string) error {
 	return nil
 }
 
-//Publish a message to all subscribed users.
+// Publish a message to all subscribed users.
 func (b *CacheBroker) Publish(msg string) {
 	b.data <- msg
 }

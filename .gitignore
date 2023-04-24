@@ -15,3 +15,7 @@ lint.txt
 
 #IDE generated files
 .idea/
+.vscode/
+
+#Test files
+coverage.out
